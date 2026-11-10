@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Bell, Check, CheckCheck, Download, Info, Keyboard, Rows3, Rows4, RefreshCw, Trash2, Upload, type LucideIcon } from 'lucide-react';
+import { Bell, Check, CheckCheck, Download, ExternalLink, Info, Keyboard, Rows3, Rows4, RefreshCw, ScrollText, Trash2, Upload, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Dialog } from '@/components/ui/Dialog';
@@ -479,7 +479,26 @@ function AppSection() {
         ) : null}
       </div>
 
-      <p className="text-xs text-text-faint">Version {__APP_VERSION__}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href="https://github.com/axadream/OpenHorizon"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`OpenHorizon on GitHub, version ${__APP_VERSION__}, opens in a new tab`}
+          className="focus-ring inline-flex items-center gap-1 rounded-xs text-xs text-text-muted underline-offset-2 hover:text-accent hover:underline"
+        >
+          Version {__APP_VERSION__}
+          <ExternalLink aria-hidden="true" size={12} strokeWidth={1.75} />
+        </a>
+        <Button
+          variant="ghost"
+          size="sm"
+          leadingIcon={ScrollText}
+          onClick={() => useUiStore.getState().openDialog('changelog')}
+        >
+          What&apos;s new
+        </Button>
+      </div>
     </Section>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties } from 'react';
 import { ReaderPane } from '@/components/reader/ReaderPane';
 import { TimelinePane } from '@/components/timeline/TimelinePane';
+import { ActivityBar } from '@/components/layout/ActivityBar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { SkipLink } from '@/components/layout/SkipLink';
 import { UpdatePrompt } from '@/components/layout/UpdatePrompt';
@@ -134,6 +135,7 @@ export function AppShell() {
       <BottomNav />
       <ShareSheet />
       <AppDialogs />
+      <ActivityBar />
       <ToastRegion />
       <UpdatePrompt />
     </>

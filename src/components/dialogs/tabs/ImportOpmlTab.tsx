@@ -6,9 +6,10 @@ import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
 import { importOpml } from '@/features/feeds/addFeed';
 import { useFeeds } from '@/features/feeds/feedQueries';
-import { syncAll } from '@/features/sync/syncAll';
+import { runSyncFromPage } from '@/features/sync/scheduler';
 import { parseOpml, type OpmlFeed, type OpmlResult } from '@/lib/opml/parseOpml';
 import { normalizeFeedUrl } from '@/lib/url';
+import { activityPercent, startActivity } from '@/store/activityStore';
 import { useUiStore } from '@/store/uiStore';
 
 interface FolderGroup {
@@ -37,6 +38,11 @@ function groupByFolder(feeds: readonly OpmlFeed[]): FolderGroup[] {
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+function importLabel(done: number, total: number): string {
+  const pct = activityPercent({ done, total }) ?? 0;
+  return `Importing feed ${done} of ${total} (${pct}%)`;
 }
 
 export function ImportOpmlTab() {
@@ -100,23 +106,30 @@ export function ImportOpmlTab() {
     setBusy(true);
     setError(null);
     setProgress({ done: 0, total: selected.size });
+    const activity = startActivity({ label: importLabel(0, selected.size), total: selected.size });
     try {
       const summary = await importOpml(parsed, {
         selected: [...selected],
         fetchNow,
-        // Fire and forget: the articles arrive while the dialog closes.
+        // Fire and forget: the articles arrive while the dialog closes. The sync reports its own activity.
         syncFeeds: (ids) => {
-          void syncAll({ feedIds: ids }).catch(() => undefined);
+          void runSyncFromPage({ feedIds: ids }).catch(() => undefined);
           return Promise.resolve();
         },
-        onProgress: (done, total) => setProgress({ done, total }),
+        onProgress: (done, total) => {
+          setProgress({ done, total });
+          activity.update(done, total, importLabel(done, total));
+        },
       });
+      activity.complete(`Imported ${plural(summary.added, 'feed')}`);
       toast.success(`Imported ${plural(summary.added, 'feed')}`, {
         description: summary.skipped > 0 ? `${summary.skipped} already subscribed, skipped.` : undefined,
       });
       useUiStore.getState().closeDialog('addFeed');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The import failed. Nothing else was changed.');
+      const message = err instanceof Error ? err.message : 'The import failed. Nothing else was changed.';
+      activity.fail(message);
+      setError(message);
     } finally {
       setBusy(false);
       setProgress(null);

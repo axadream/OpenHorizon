@@ -47,9 +47,22 @@ describe('addFeedFromUrl', () => {
     expect(err).toBeInstanceOf(AlreadySubscribedError);
     expect(await db.feeds.count()).toBe(1);
   });
+
+  it('reports the steps in order through onProgress', async () => {
+    const steps: string[] = [];
+    await addFeedFromUrl('https://example.com/feed.xml', { onProgress: (s) => steps.push(s) });
+    expect(steps).toEqual(['checking', 'fetching', 'parsing', 'saving']);
+  });
 });
 
 describe('addManualFeedFromXml', () => {
+  it('reports parsing then saving through onProgress', async () => {
+    const steps: string[] = [];
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>P</title><item><title>A</title><guid>a</guid></item></channel></rss>`;
+    await addManualFeedFromXml(xml, { onProgress: (s) => steps.push(s) });
+    expect(steps).toEqual(['parsing', 'saving']);
+  });
+
   it('stores the feed as manual and writes its articles', async () => {
     const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Pasted</title>
       <item><title>First</title><link>https://pasted.test/1</link><guid>p1</guid></item>
@@ -83,6 +96,7 @@ describe('importOpml', () => {
     expect(summary.skipped).toBe(1);
     expect(summary.foldersCreated).toBe(2);
     expect(progress.at(-1)).toEqual([3, 3]);
+    expect(progress).toHaveLength(3);
     expect(syncFeeds).toHaveBeenCalledWith(summary.addedFeedIds);
 
     const folders = await db.folders.toArray();

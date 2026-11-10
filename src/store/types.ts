@@ -29,11 +29,15 @@ export interface SharePayload {
   text?: string;
 }
 
+/** The changelog dialog takes no payload. */
+export type ChangelogDialogPayload = Record<string, never>;
+
 /** Payload type per dialog name (what `openDialog` accepts). */
 export interface DialogPayloads {
   addFeed: AddFeedDialogPayload;
   settings: SettingsDialogPayload;
   share: SharePayload;
+  changelog: ChangelogDialogPayload;
 }
 
 export type DialogName = keyof DialogPayloads;
@@ -43,6 +47,7 @@ export interface DialogClosedValues {
   addFeed: false;
   settings: false;
   share: null;
+  changelog: false;
 }
 
 /** Current state of every dialog: its payload when open, its closed value otherwise. */
@@ -50,6 +55,7 @@ export interface DialogSlots {
   addFeed: DialogClosedValues['addFeed'] | DialogPayloads['addFeed'];
   settings: DialogClosedValues['settings'] | DialogPayloads['settings'];
   share: DialogClosedValues['share'] | DialogPayloads['share'];
+  changelog: DialogClosedValues['changelog'] | DialogPayloads['changelog'];
 }
 
 export interface SyncProgress {

@@ -22,9 +22,13 @@ export class AlreadySubscribedError extends Error {
   }
 }
 
+/** Steps reported while a feed is added (URL and pasted XML). */
+export type AddFeedStep = 'checking' | 'fetching' | 'parsing' | 'saving';
+
 export interface AddFeedOptions {
   folderId?: string | null;
   signal?: AbortSignal;
+  onProgress?: (step: AddFeedStep) => void;
 }
 
 function withScheme(input: string): string {
@@ -81,13 +85,17 @@ async function insertFeed(feed: Feed): Promise<Feed> {
  */
 export async function addFeedFromUrl(input: string, opts: AddFeedOptions = {}): Promise<Feed> {
   const requested = normalizeFeedUrl(withScheme(input));
+  opts.onProgress?.('checking');
   await assertNotSubscribed(requested);
 
+  opts.onProgress?.('fetching');
   const res = await fetchWithProxy(requested, { signal: opts.signal });
+  opts.onProgress?.('parsing');
   const parsed = await parseFeed(res.text, res.finalUrl);
 
   const canonical = normalizeFeedUrl(res.finalUrl || requested);
   const feed = buildFeed(canonical, parsed, opts.folderId ?? null, Date.now());
+  opts.onProgress?.('saving');
   return insertFeed(feed);
 }
 
@@ -95,7 +103,11 @@ export async function addFeedFromUrl(input: string, opts: AddFeedOptions = {}): 
  * Subscribe to pasted XML with no source URL. Stored as a manual feed that is never synced;
  * its items are written once here, since the sync scheduler skips manual feeds.
  */
-export async function addManualFeedFromXml(xml: string, opts: { folderId?: string | null } = {}): Promise<Feed> {
+export async function addManualFeedFromXml(
+  xml: string,
+  opts: { folderId?: string | null; onProgress?: (step: AddFeedStep) => void } = {},
+): Promise<Feed> {
+  opts.onProgress?.('parsing');
   const parsed = parseFeed(xml, '');
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -106,6 +118,7 @@ export async function addManualFeedFromXml(xml: string, opts: { folderId?: strin
   feed.lastFetchedAt = now;
 
   const articles = dedupeWithinFetch(parsed.items).map((item) => toArticle(id, item, now));
+  opts.onProgress?.('saving');
   await db.transaction('rw', db.feeds, db.articles, async () => {
     await db.feeds.add(feed);
     if (articles.length > 0) await db.articles.bulkAdd(articles);

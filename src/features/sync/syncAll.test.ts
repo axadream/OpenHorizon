@@ -170,6 +170,25 @@ describe('syncAll', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onProgress once per finished feed, and never when there is nothing to sync', async () => {
+    handler = () => new Response(rss('T', [{ guid: 'g1' }]));
+    await db.feeds.bulkAdd([
+      feedRow({ id: 'p1', url: 'https://p1.test/feed.xml' }),
+      feedRow({ id: 'p2', url: 'https://p2.test/feed.xml' }),
+      feedRow({ id: 'p3', url: 'https://p3.test/feed.xml' }),
+    ]);
+    const calls: Array<[number, number]> = [];
+    await syncAll({ onProgress: (done, total) => calls.push([done, total]) });
+    expect(calls).toHaveLength(3);
+    expect(calls.map(([done]) => done).sort()).toEqual([1, 2, 3]);
+    expect(calls.every(([, total]) => total === 3)).toBe(true);
+
+    await db.feeds.clear();
+    const empty: Array<[number, number]> = [];
+    await syncAll({ onProgress: (done, total) => empty.push([done, total]) });
+    expect(empty).toHaveLength(0);
+  });
+
   describe('notifications for new articles', () => {
     let showNotification: ReturnType<typeof vi.fn>;
 

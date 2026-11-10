@@ -19,7 +19,7 @@ export const UI_PERSIST_KEYS = ['navCollapsed', 'readerPrefs', 'timelineSort', '
 /** Timeline page size; "Load more" adds one page. */
 export const PAGE_SIZE = 100;
 
-const DIALOGS_CLOSED: DialogSlots = { addFeed: false, settings: false, share: null };
+const DIALOGS_CLOSED: DialogSlots = { addFeed: false, settings: false, share: null, changelog: false };
 
 /** Validate a persisted reader prefs object; anything malformed falls back to the defaults. */
 export function sanitizeReaderPrefs(raw: unknown): ReaderPrefs {

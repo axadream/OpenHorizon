@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { getSetting, useSetting } from '@/features/settings/settings';
 import { toast } from '@/lib/toast';
+import { activityPercent, startActivity, type ActivityHandle } from '@/store/activityStore';
 import { FEED_SYNC_ONCE_TAG, FEED_SYNC_TAG, intervalFor, type SyncFrequency } from './protocol';
 import { syncAll, type SyncAllResult } from './syncAll';
 
@@ -65,14 +66,24 @@ export async function runSyncFromPage(opts: RunFromPageOptions = {}): Promise<Sy
 
   const execute = async (): Promise<SyncAllResult | null> => {
     setStatus({ running: true, progress: { done: 0, total: 0 }, lastError: null });
+    // Held in an object so the callbacks can create it lazily (no activity when there are 0 feeds).
+    const progressActivity: { handle: ActivityHandle | null } = { handle: null };
     try {
       const result = await syncAll({
         feedIds: opts.feedIds,
         force: opts.force,
         origin: 'page',
-        onProgress: (done, total) => setStatus({ progress: { done, total } }),
+        onProgress: (done, total) => {
+          setStatus({ progress: { done, total } });
+          if (total <= 0) return;
+          const pct = activityPercent({ done, total }) ?? 0;
+          if (!progressActivity.handle) progressActivity.handle = startActivity({ label: 'Syncing feeds', total });
+          progressActivity.handle.update(done, total, `Syncing feed ${done} of ${total} (${pct}%)`);
+        },
       });
       const failed = result.errorCount;
+      const synced = result.results.length;
+      progressActivity.handle?.complete(`Synced ${synced} ${synced === 1 ? 'feed' : 'feeds'}`);
       setStatus({
         lastRunAt: result.finishedAt,
         lastError: failed > 0 ? `Sync failed for ${failed} ${failed === 1 ? 'feed' : 'feeds'}` : null,
@@ -84,6 +95,7 @@ export async function runSyncFromPage(opts: RunFromPageOptions = {}): Promise<Sy
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      progressActivity.handle?.fail(message);
       setStatus({ lastError: message });
       if (opts.manual) toast.error('Sync failed', { description: message });
       return null;

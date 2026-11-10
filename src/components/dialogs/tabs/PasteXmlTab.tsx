@@ -3,8 +3,9 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { db } from '@/db/db';
-import { addManualFeedFromXml } from '@/features/feeds/addFeed';
+import { addManualFeedFromXml, type AddFeedStep } from '@/features/feeds/addFeed';
 import { diagnoseFetchError } from '@/lib/proxy/diagnose';
+import { startActivity } from '@/store/activityStore';
 import { onFeedSubscribed } from '@/components/dialogs/subscribe';
 
 /** Alert content: a bold title and an optional explanation. */
@@ -39,13 +40,20 @@ export function PasteXmlTab() {
 
     setBusy(true);
     setError(null);
+    const activity = startActivity({ label: 'Reading XML' });
     try {
-      const feed = await addManualFeedFromXml(xml);
+      const feed = await addManualFeedFromXml(xml, {
+        onProgress: (step: AddFeedStep) => {
+          if (step === 'saving') activity.update(0, null, 'Saving articles');
+        },
+      });
       const finalTitle = title.trim();
       await db.feeds.update(feed.id, { title: finalTitle, titleCustomized: 1 });
+      activity.complete(`Added ${finalTitle}`);
       onFeedSubscribed({ ...feed, title: finalTitle });
     } catch (err) {
       const diagnosis = diagnoseFetchError(err, { online: navigator.onLine });
+      activity.fail(diagnosis.title);
       setError({ title: diagnosis.title, detail: diagnosis.detail || undefined });
     } finally {
       setBusy(false);

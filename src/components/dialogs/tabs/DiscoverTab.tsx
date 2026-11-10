@@ -11,6 +11,7 @@ import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { hostname, normalizeFeedUrl } from '@/lib/url';
 import type { FeedKind } from '@/lib/parser/types';
 import { toast } from '@/lib/toast';
+import { activityPercent, startActivity } from '@/store/activityStore';
 import { onFeedSubscribed } from '@/components/dialogs/subscribe';
 
 export interface DiscoverTabProps {
@@ -104,11 +105,29 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
     setSearching(true);
     setError(null);
     setResults(null);
+    const activity = startActivity({ label: 'Fetching page 0 of 2 (0%)', total: 2 });
     try {
-      const found = await discoverFeeds(input, { signal: ctrl.signal });
-      if (!ctrl.signal.aborted) setResults(found);
+      const found = await discoverFeeds(input, {
+        signal: ctrl.signal,
+        onProgress: (done, total, label) => {
+          const pct = activityPercent({ done, total }) ?? 0;
+          activity.update(done, total, `${label} ${done} of ${total} (${pct}%)`);
+        },
+      });
+      if (ctrl.signal.aborted) {
+        activity.complete('Search cancelled');
+        return;
+      }
+      setResults(found);
+      activity.complete(`Found ${found.length} ${found.length === 1 ? 'candidate' : 'candidates'}`);
     } catch (err) {
-      if (!ctrl.signal.aborted) setError(describeError(err));
+      if (ctrl.signal.aborted) {
+        activity.complete('Search cancelled');
+        return;
+      }
+      const described = describeError(err);
+      activity.fail(described.title);
+      setError(described);
     } finally {
       if (!ctrl.signal.aborted) setSearching(false);
     }

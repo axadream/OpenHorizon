@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Switch } from '@/components/ui/Switch';
 import { db } from '@/db/db';
-import { AlreadySubscribedError, addFeedFromUrl } from '@/features/feeds/addFeed';
+import { AlreadySubscribedError, addFeedFromUrl, type AddFeedStep } from '@/features/feeds/addFeed';
+import { startActivity } from '@/store/activityStore';
 import { FetchAllFailedError } from '@/lib/proxy/fetchWithProxy';
 import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { NotAFeedError } from '@/lib/parser/types';
@@ -36,6 +37,19 @@ const VIA_LABEL: Record<string, string> = {
   codetabs: 'codetabs',
   rss2json: 'rss2json',
 };
+
+/** Percent reported for each add step, and the label shown while it runs. */
+const URL_STEPS: Record<AddFeedStep, { done: number; label: string }> = {
+  checking: { done: 10, label: 'Checking address' },
+  fetching: { done: 40, label: 'Fetching feed' },
+  parsing: { done: 75, label: 'Reading feed' },
+  saving: { done: 100, label: 'Saving feed' },
+};
+
+function stepLabel(step: AddFeedStep): string {
+  const { done, label } = URL_STEPS[step];
+  return `${label} (${done}%)`;
+}
 
 function describeError(err: unknown): UrlError {
   if (err instanceof AlreadySubscribedError) {
@@ -85,18 +99,30 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
     setLoading(true);
     setError(null);
 
+    const activity = startActivity({ label: stepLabel('checking'), total: 100 });
     try {
       const folderId = await resolveFolderId(folder, newFolder);
-      const feed = await addFeedFromUrl(target, { folderId, signal: ctrl.signal });
+      const feed = await addFeedFromUrl(target, {
+        folderId,
+        signal: ctrl.signal,
+        onProgress: (step) => activity.update(URL_STEPS[step].done, 100, stepLabel(step)),
+      });
       if (notify) await db.feeds.update(feed.id, { isFavorite: 1 });
+      activity.complete(`Added ${feed.title}`);
       onFeedSubscribed({ ...feed, isFavorite: notify ? 1 : 0 });
     } catch (err) {
-      if (ctrl.signal.aborted) return;
+      if (ctrl.signal.aborted) {
+        activity.complete('Cancelled');
+        return;
+      }
       if (err instanceof NotAFeedError) {
+        activity.complete('Not a feed, looking for feeds');
         onNotAFeed(target);
         return;
       }
-      setError(describeError(err));
+      const described = describeError(err);
+      activity.fail(described.title);
+      setError(described);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
