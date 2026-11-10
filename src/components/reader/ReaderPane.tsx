@@ -8,9 +8,11 @@ import { ReaderContent } from '@/components/reader/ReaderContent';
 import { ReaderToolbar } from '@/components/reader/ReaderToolbar';
 import { markRead, setReadLater } from '@/features/articles/articleActions';
 import { useArticle } from '@/features/articles/articleQueries';
+import { useAppearanceStore } from '@/features/appearance/appearanceStore';
 import { useFeedMap } from '@/features/feeds/feedQueries';
 import { readerPrefsToCssVars } from '@/features/reader/readerPrefs';
 import { share } from '@/features/sharing/share';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { formatFull } from '@/lib/time';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -45,6 +47,7 @@ function hostOf(url: string): string {
  * footer. Marks the article read after AUTO_READ_MS. Named export, no required props.
  */
 export function ReaderPane({ className, 'data-state': dataState, inert }: ReaderPaneProps = {}) {
+  useT();
   const selectedId = useSelectedArticleId();
   const article = useArticle(selectedId);
   const feeds = useFeedMap();
@@ -52,6 +55,7 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   const fullscreen = useReaderFullscreen();
   const isMobile = useIsMobile();
   const mobilePane = useMobilePane();
+  const layoutMode = useAppearanceStore((s) => s.layoutMode);
 
   // Keep the screen on while an article is open in the reader. On mobile only when the reader pane is showing.
   useWakeLock(selectedId !== null && prefs.keepScreenOn && (!isMobile || mobilePane === 'reader'));
@@ -82,10 +86,10 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   // does not trigger it again. markRead() skips articles that are already read.
   useEffect(() => {
     if (!articleId) return;
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void markRead(articleId);
     }, AUTO_READ_MS);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [articleId]);
 
   // Escape (fullscreen exit included) is handled by the Esc chain in useKeyboardShortcuts.
@@ -95,22 +99,19 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   };
 
   const paneClass = cn('flex min-h-0 flex-col overflow-hidden bg-bg', className);
+  const readerLabel = t('common.reader');
 
   if (!selectedId) {
     return (
-      <section aria-label="Reader" data-state={dataState} inert={inert} className={paneClass}>
-        <EmptyState
-          icon={BookOpen}
-          title="Select an article"
-          description="Choose something from the timeline to start reading."
-        />
+      <section aria-label={readerLabel} data-pane="reader" data-state={dataState} inert={inert} className={paneClass}>
+        <EmptyState icon={BookOpen} title={t('empty.selectTitle')} description={t('empty.selectDesc')} />
       </section>
     );
   }
 
   if (!article) {
     return (
-      <section aria-label="Reader" data-state={dataState} inert={inert} className={paneClass}>
+      <section aria-label={readerLabel} data-pane="reader" data-state={dataState} inert={inert} className={paneClass}>
         <div className="steel h-[var(--toolbar-h)] shrink-0 border-b border-border" aria-hidden="true" />
         <div className="min-h-0 flex-1 overflow-hidden px-4 py-6 md:px-8 md:py-10">
           <ReaderSkeleton />
@@ -125,12 +126,13 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   const cssVars = readerPrefsToCssVars(prefs) as CSSProperties;
 
   return (
-    <section aria-label="Reader" data-state={dataState} inert={inert} className={paneClass}>
+    <section aria-label={readerLabel} data-pane="reader" data-state={dataState} inert={inert} className={paneClass}>
       <ReaderToolbar
         article={article}
         feed={feed}
         isMobile={isMobile}
         fullscreen={fullscreen}
+        readingLayout={layoutMode === 'reading'}
         scrolled={scrolled}
         showImages={showImages}
         onShowImagesChange={setShowImages}
@@ -145,7 +147,7 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
           <header className="mx-auto mb-6 max-w-[var(--reader-measure)]">
             <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-text-muted">
               <FeedAvatar title={feed?.title ?? ''} src={feed?.faviconUrl} size={16} />
-              <span className="min-w-0 truncate">{feed?.title ?? 'Unknown feed'}</span>
+              <span className="min-w-0 truncate">{feed?.title ?? t('common.unknownFeed')}</span>
               <span aria-hidden="true">·</span>
               <time dateTime={new Date(article.publishedAt).toISOString()}>{formatFull(article.publishedAt)}</time>
               {article.author ? (
@@ -158,6 +160,7 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
             <h1
               id="reader-title"
               ref={headingRef}
+              dir="auto"
               tabIndex={-1}
               className="mt-2 font-sans text-2xl font-bold leading-tight tracking-[-0.01em] text-text outline-none lg:text-3xl"
             >
@@ -191,7 +194,7 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
                 rel="noopener noreferrer"
                 className="steel focus-ring inline-flex h-9 items-center gap-2 rounded-sm px-3 text-base font-medium text-text hover:brightness-110"
               >
-                Read on {hostOf(article.link) || 'the web'}
+                {t('reader.readOn', { host: hostOf(article.link) || t('reader.theWeb') })}
               </a>
             ) : null}
             <Button
@@ -200,18 +203,18 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
               disabled={!shareUrl}
               onClick={() => void share({ title: article.title, url: shareUrl, text: article.title })}
             >
-              Share
+              {t('reader.share')}
             </Button>
             <Button
               variant="ghost"
               leadingIcon={Bookmark}
               onClick={() => void setReadLater(article.id, article.isReadLater !== 1)}
-              title={article.isReadLater === 1 ? 'Remove from read later' : 'Read later'}
+              title={article.isReadLater === 1 ? t('reader.removeReadLater') : t('reader.readLater')}
             >
-              {article.isReadLater === 1 ? 'Remove from read later' : 'Read later'}
+              {article.isReadLater === 1 ? t('reader.removeReadLater') : t('reader.readLater')}
             </Button>
             {!isMobile ? (
-              <p className="w-full pt-2 text-xs text-text-faint">J / K to move between articles</p>
+              <p className="w-full pt-2 text-xs text-text-faint">{t('reader.keyHint')}</p>
             ) : null}
           </footer>
         </article>

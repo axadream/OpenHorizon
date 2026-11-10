@@ -47,7 +47,7 @@ export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
 export interface MenuItemProps extends ComponentPropsWithoutRef<'button'> {
   icon?: LucideIcon;
   destructive?: boolean;
-  /** Optional right-aligned hint, e.g. a keyboard shortcut. */
+  /** Optional end-aligned hint, e.g. a keyboard shortcut. */
   hint?: string;
 }
 
@@ -67,7 +67,7 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
         if (!e.defaultPrevented) close();
       }}
       className={cn(
-        'focus-ring flex h-9 w-full items-center gap-2.5 rounded-sm px-3 text-left text-base select-none',
+        'focus-ring flex h-9 w-full items-center gap-2.5 rounded-sm px-3 text-start text-base select-none',
         'transition-colors duration-[var(--duration-instant)] ease-standard',
         'hover:bg-card focus:bg-card disabled:opacity-50 disabled:pointer-events-none',
         destructive ? 'text-danger' : 'text-silver hover:text-text',
@@ -77,7 +77,7 @@ export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function Me
     >
       {Icon ? <Icon aria-hidden="true" size={16} strokeWidth={1.75} className="shrink-0 opacity-80" /> : null}
       <span className="min-w-0 flex-1 truncate">{children}</span>
-      {hint ? <span className="ml-3 text-xs text-text-muted">{hint}</span> : null}
+      {hint ? <span className="ms-3 text-xs text-text-muted">{hint}</span> : null}
     </button>
   );
 });

@@ -7,7 +7,10 @@ import {
   reportFailure,
   toggleFavoriteWithToast,
 } from '@/features/articles/articleCommands';
+import type { LayoutMode } from '@/features/appearance/appearance';
+import { useAppearanceStore } from '@/features/appearance/appearanceStore';
 import type { GesturePoint } from '@/hooks/useLongPress';
+import { t, useIsRtl, useLocale } from '@/i18n/i18n';
 import { setTimelineIds } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import { toast } from '@/lib/toast';
@@ -19,6 +22,7 @@ export interface ArticleListProps {
   /** View name, used for the listbox label. */
   label: string;
   density: 'comfortable' | 'compact';
+  layout: LayoutMode;
   selectedId: string | null;
   recentCutoff: number;
   /** True when the page is full and more articles may exist. */
@@ -30,25 +34,30 @@ export interface ArticleListProps {
  * of a callback. Store writes go through getState() to avoid subscribing this component.
  */
 function select(id: string): void {
-  useUiStore.getState().selectArticle(id, { openOnMobile: true });
+  const ui = useUiStore.getState();
+  ui.selectArticle(id, { openOnMobile: true });
+  // Reading layout: choosing an article hands the screen to the reader (J/K keeps the list open).
+  if (useAppearanceStore.getState().layoutMode === 'reading') ui.setTimelineOverlay(false);
 }
 
-function report(action: Promise<unknown>, message: string): void {
-  action.catch(() => toast.error(message));
+function report(action: Promise<unknown>, message: () => string): void {
+  action.catch(() => toast.error(message()));
 }
 
-const onToggleFavorite = (id: string) => report(toggleFavorite(id), 'Could not update favorite');
-const onToggleReadLater = (id: string) => report(toggleReadLater(id), 'Could not update read later');
-const onToggleRead = (id: string) => report(toggleRead(id), 'Could not update read state');
+const onToggleFavorite = (id: string) => report(toggleFavorite(id), () => t('article.couldNotFavorite'));
+const onToggleReadLater = (id: string) => report(toggleReadLater(id), () => t('article.couldNotLater'));
+const onToggleRead = (id: string) => report(toggleRead(id), () => t('article.couldNotReadState'));
 const onLoadMore = () => useUiStore.getState().loadMore();
 
-/* Gestures: swipe right deletes (undoable), swipe left toggles favorite (announced), long press opens the sheet. */
-const onSwipeDelete = (id: string) => void deleteArticleWithUndo(id).catch(reportFailure('Could not delete the article'));
-const onSwipeFavorite = (id: string) => void toggleFavoriteWithToast(id).catch(reportFailure('Could not update favorite'));
+/* Gestures: swipe deletes (undoable), swipe favorites (announced), long press opens the sheet. */
+const onSwipeDelete = (id: string) =>
+  void deleteArticleWithUndo(id).catch(reportFailure(t('article.couldNotDelete')));
+const onSwipeFavorite = (id: string) =>
+  void toggleFavoriteWithToast(id).catch(reportFailure(t('article.couldNotFavorite')));
 const onOpenActions = (id: string, point: GesturePoint) =>
   useUiStore.getState().openDialog('articleActions', { articleId: id, x: point.x, y: point.y });
 
-/** Opens the action sheet for a row from the keyboard, anchored to the row's left edge. */
+/** Opens the action sheet for a row from the keyboard, anchored to the row's start edge. */
 function openActionsForRow(id: string): void {
   const rect = document.getElementById(`article-${id}`)?.getBoundingClientRect();
   onOpenActions(id, rect ? { x: rect.left + 24, y: rect.top + rect.height / 2 } : { x: 0, y: 0 });
@@ -59,9 +68,11 @@ function openActionsForRow(id: string): void {
  * exposed via aria-activedescendant and moved with ArrowUp/ArrowDown/Home/End. Enter or Space
  * selects it. Also publishes the ordered ids to the store for the keyboard hook.
  */
-export function ArticleList({ articles, feedMap, label, density, selectedId, recentCutoff, canLoadMore }: ArticleListProps) {
+export function ArticleList({ articles, feedMap, label, density, layout, selectedId, recentCutoff, canLoadMore }: ArticleListProps) {
   const ids = useMemo(() => articles.map((a) => a.id), [articles]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const locale = useLocale();
+  const rtl = useIsRtl();
 
   useEffect(() => {
     setTimelineIds(ids);
@@ -124,7 +135,7 @@ export function ArticleList({ articles, feedMap, label, density, selectedId, rec
       <ul
         id="timeline-listbox"
         role="listbox"
-        aria-label={`${label} articles`}
+        aria-label={t('timeline.articlesLabel', { title: label })}
         aria-activedescendant={active !== null ? `article-${active}` : undefined}
         tabIndex={0}
         onKeyDown={onKeyDown}
@@ -136,12 +147,15 @@ export function ArticleList({ articles, feedMap, label, density, selectedId, rec
             <ArticleRow
               key={article.id}
               article={article}
-              feedTitle={feed?.title ?? 'Unknown feed'}
+              feedTitle={feed?.title ?? t('common.unknownFeed')}
               feedFaviconUrl={feed?.faviconUrl}
               selected={article.id === selectedId}
               index={index}
+              layout={layout}
               density={density}
               recentCutoff={recentCutoff}
+              rtl={rtl}
+              locale={locale}
               onSelect={onRowSelect}
               onToggleFavorite={onToggleFavorite}
               onToggleReadLater={onToggleReadLater}
@@ -156,7 +170,7 @@ export function ArticleList({ articles, feedMap, label, density, selectedId, rec
       {canLoadMore ? (
         <div className="flex justify-center p-3">
           <Button variant="steel" onClick={onLoadMore}>
-            Load more
+            {t('timeline.loadMore')}
           </Button>
         </div>
       ) : null}

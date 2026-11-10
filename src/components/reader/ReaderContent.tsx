@@ -30,6 +30,7 @@ export function ReaderContent({ article, prefs, showImages }: ReaderContentProps
 
   return (
     <div
+      dir="auto"
       className={cn(
         'reader-content',
         // Images, video and embeds are hidden with arbitrary variants. The important modifier is

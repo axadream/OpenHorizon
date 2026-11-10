@@ -10,10 +10,13 @@ import {
   FONT_FAMILIES,
   FONT_SIZES,
   LINE_HEIGHTS,
+  READER_FONTS,
   type FontSizeStep,
   type LineHeightStep,
+  type ReaderFont,
   type ReaderPrefs,
 } from '@/features/reader/readerPrefs';
+import { t, useT } from '@/i18n/i18n';
 import { useReaderPrefs } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import { cn } from '@/lib/cn';
@@ -28,10 +31,15 @@ export interface ReaderPrefsPopoverProps {
   onShowImagesChange(show: boolean): void;
 }
 
-const SIZE_LABELS = ['XS', 'S', 'M', 'L', 'XL'] as const;
-const LINE_LABELS = ['Compact', 'Normal', 'Relaxed'] as const;
-const FONT_LABELS = { serif: 'Aa Serif', sans: 'Aa Sans' } as const;
-const WIDTH_LABELS = { narrow: 'Narrow', wide: 'Wide' } as const;
+const SIZE_KEYS = ['prefs.sizeXs', 'prefs.sizeS', 'prefs.sizeM', 'prefs.sizeL', 'prefs.sizeXl'] as const;
+const LINE_KEYS = ['prefs.lineCompact', 'prefs.lineNormal', 'prefs.lineRelaxed'] as const;
+const FONT_KEYS: Record<ReaderFont, 'prefs.fontSerif' | 'prefs.fontSans' | 'prefs.fontMono' | 'prefs.fontDyslexic'> = {
+  serif: 'prefs.fontSerif',
+  sans: 'prefs.fontSans',
+  mono: 'prefs.fontMono',
+  dyslexic: 'prefs.fontDyslexic',
+};
+const WIDTHS = ['narrow', 'wide'] as const;
 
 const clampSize = (n: number): FontSizeStep => Math.min(FONT_SIZES.length - 1, Math.max(0, n)) as FontSizeStep;
 const clampLine = (n: number): LineHeightStep => Math.min(LINE_HEIGHTS.length - 1, Math.max(0, n)) as LineHeightStep;
@@ -58,6 +66,7 @@ export function ReaderPrefsPopover({
   showImages,
   onShowImagesChange,
 }: ReaderPrefsPopoverProps) {
+  useT();
   const prefs = useReaderPrefs();
   const setPrefs = useUiStore((s) => s.setReaderPrefs);
   const resetPrefs = useUiStore((s) => s.resetReaderPrefs);
@@ -66,16 +75,18 @@ export function ReaderPrefsPopover({
 
   const setSize = (n: number) => setPrefs({ fontSize: clampSize(n) });
   const onSliderKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    // The slider reads left to right in LTR and right to left in RTL: ArrowLeft/Right follow the direction.
+    const rtl = document.documentElement.dir === 'rtl';
     switch (e.key) {
       case 'ArrowLeft':
       case 'ArrowDown':
         e.preventDefault();
-        setSize(prefs.fontSize - 1);
+        setSize(prefs.fontSize + (e.key === 'ArrowLeft' && rtl ? 1 : -1));
         break;
       case 'ArrowRight':
       case 'ArrowUp':
         e.preventDefault();
-        setSize(prefs.fontSize + 1);
+        setSize(prefs.fontSize + (e.key === 'ArrowRight' && rtl ? -1 : 1));
         break;
       case 'Home':
         e.preventDefault();
@@ -89,26 +100,24 @@ export function ReaderPrefsPopover({
   };
 
   const lineIndex = prefs.lineHeight;
-  const fonts = ['serif', 'sans'] as const;
-  const widths = ['narrow', 'wide'] as const;
-  const fontIndex = fonts.indexOf(prefs.font);
-  const widthIndex = widths.indexOf(prefs.width);
+  const fontIndex = READER_FONTS.indexOf(prefs.font);
+  const widthIndex = WIDTHS.indexOf(prefs.width);
 
   return (
     <Popover
       open={open}
       onOpenChange={onOpenChange}
       triggerRef={triggerRef}
-      label="Reading preferences"
+      label={t('reader.prefs')}
       className="flex w-[280px] flex-col gap-3 p-3"
     >
       <div className="flex flex-col gap-1.5">
         <span id="prefs-size-label" className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">
-          Text size
+          {t('prefs.textSize')}
         </span>
         <div className="flex items-center gap-2">
           <IconButton
-            label="Smaller text"
+            label={t('prefs.smaller')}
             icon={Minus}
             size="sm"
             disabled={prefs.fontSize === 0}
@@ -121,7 +130,7 @@ export function ReaderPrefsPopover({
             aria-valuemin={0}
             aria-valuemax={FONT_SIZES.length - 1}
             aria-valuenow={prefs.fontSize}
-            aria-valuetext={SIZE_LABELS[prefs.fontSize]}
+            aria-valuetext={t(SIZE_KEYS[prefs.fontSize])}
             onKeyDown={onSliderKey}
             className="focus-ring flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1"
           >
@@ -134,7 +143,7 @@ export function ReaderPrefsPopover({
             ))}
           </div>
           <IconButton
-            label="Larger text"
+            label={t('prefs.larger')}
             icon={Plus}
             size="sm"
             disabled={prefs.fontSize === FONT_SIZES.length - 1}
@@ -144,89 +153,89 @@ export function ReaderPrefsPopover({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">Line spacing</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">{t('prefs.lineSpacing')}</span>
         <div
           role="radiogroup"
-          aria-label="Line spacing"
+          aria-label={t('prefs.lineSpacing')}
           className="flex gap-1.5"
-          onKeyDown={radioKeyHandler(LINE_LABELS.length, lineIndex, (i) => setPrefs({ lineHeight: clampLine(i) }))}
+          onKeyDown={radioKeyHandler(LINE_KEYS.length, lineIndex, (i) => setPrefs({ lineHeight: clampLine(i) }))}
         >
-          {LINE_LABELS.map((label, i) => (
+          {LINE_KEYS.map((key, i) => (
             <Chip
-              key={label}
+              key={key}
               role="radio"
               selected={lineIndex === i}
               className="flex-1 justify-center px-2"
               onClick={() => setPrefs({ lineHeight: clampLine(i) })}
             >
-              {label}
+              {t(key)}
             </Chip>
           ))}
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">Font</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">{t('prefs.font')}</span>
         <div
           role="radiogroup"
-          aria-label="Font"
-          className="flex gap-1.5"
-          onKeyDown={radioKeyHandler(fonts.length, fontIndex, (i) => setPrefs({ font: fonts[i] }))}
+          aria-label={t('prefs.font')}
+          className="grid grid-cols-2 gap-1.5"
+          onKeyDown={radioKeyHandler(READER_FONTS.length, fontIndex, (i) => setPrefs({ font: READER_FONTS[i] }))}
         >
-          {fonts.map((f) => (
+          {READER_FONTS.map((f) => (
             <Chip
               key={f}
               role="radio"
               selected={prefs.font === f}
-              className="flex-1 justify-center px-2 text-sm"
+              className="justify-center px-2 text-sm"
               style={{ fontFamily: FONT_FAMILIES[f] }}
               onClick={() => setPrefs({ font: f })}
             >
-              {FONT_LABELS[f]}
+              {t(FONT_KEYS[f])}
             </Chip>
           ))}
         </div>
       </div>
 
       <div className="flex max-md:hidden flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">Width</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">{t('prefs.width')}</span>
         <div
           role="radiogroup"
-          aria-label="Width"
+          aria-label={t('prefs.width')}
           className="flex gap-1.5"
-          onKeyDown={radioKeyHandler(widths.length, widthIndex, (i) => setPrefs({ width: widths[i] }))}
+          onKeyDown={radioKeyHandler(WIDTHS.length, widthIndex, (i) => setPrefs({ width: WIDTHS[i] as ReaderPrefs['width'] }))}
         >
-          {widths.map((w) => (
+          {WIDTHS.map((w) => (
             <Chip
               key={w}
               role="radio"
               selected={prefs.width === w}
               className="flex-1 justify-center px-2"
-              onClick={() => setPrefs({ width: w as ReaderPrefs['width'] })}
+              onClick={() => setPrefs({ width: w })}
             >
-              {WIDTH_LABELS[w]}
+              {w === 'narrow' ? t('prefs.narrow') : t('prefs.wide')}
             </Chip>
           ))}
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">Images</span>
+        <span className="text-xs font-semibold uppercase tracking-[0.06em] text-text-muted">{t('prefs.images')}</span>
         <div
           role="radiogroup"
-          aria-label="Images"
+          aria-label={t('prefs.images')}
           className="flex gap-1.5"
           onKeyDown={radioKeyHandler(2, showImages ? 0 : 1, (i) => onShowImagesChange(i === 0))}
         >
-          {(['Show', 'Hide'] as const).map((label, i) => (
+          {(['prefs.show', 'prefs.hide'] as const).map((key, i) => (
             <Chip
-              key={label}
+              key={key}
               role="radio"
               selected={showImages === (i === 0)}
               className="flex-1 justify-center px-2"
               onClick={() => onShowImagesChange(i === 0)}
             >
-              {label}
+              {t(key)}
             </Chip>
           ))}
         </div>
@@ -235,7 +244,7 @@ export function ReaderPrefsPopover({
       {wakeLockSupported ? (
         <div className="flex items-center justify-between gap-3">
           <span id={keepAwakeId} className="text-sm text-silver">
-            Keep screen on while reading
+            {t('prefs.keepAwake')}
           </span>
           <Switch
             checked={prefs.keepScreenOn}
@@ -246,13 +255,8 @@ export function ReaderPrefsPopover({
       ) : null}
 
       <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          size="sm"
-          leadingIcon={RotateCcw}
-          onClick={() => resetPrefs()}
-        >
-          Reset
+        <Button variant="ghost" size="sm" leadingIcon={RotateCcw} onClick={() => resetPrefs()}>
+          {t('prefs.reset')}
         </Button>
       </div>
     </Popover>

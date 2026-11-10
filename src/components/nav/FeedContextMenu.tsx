@@ -7,6 +7,7 @@ import { markAllRead, undoMarkAllRead } from '@/features/articles/articleActions
 import { useFolders } from '@/features/feeds/feedQueries';
 import { deleteFolder, moveFeedToFolder } from '@/features/feeds/folders';
 import { removeFeed, restoreFeed } from '@/features/feeds/removeFeed';
+import { t, useT } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { useUiStore } from '@/store/uiStore';
 import type { View } from '@/store/types';
@@ -28,16 +29,17 @@ export async function renameFeed(feedId: string, title: string): Promise<void> {
 async function toggleFavoriteFeed(feed: Feed): Promise<void> {
   const on = feed.isFavorite !== 1;
   await db.feeds.update(feed.id, { isFavorite: on ? 1 : 0, updatedAt: Date.now() });
-  toast.success(on ? `${feed.title} is now a favorite feed` : `${feed.title} is no longer a favorite feed`);
+  toast.success(on ? t('feed.favoriteOn', { title: feed.title }) : t('feed.favoriteOff', { title: feed.title }));
 }
 
 async function markReadWithUndo(view: View, emptyLabel: string): Promise<void> {
   const ids = await markAllRead(view);
   if (ids.length === 0) {
-    toast.info(`Nothing unread in ${emptyLabel}`);
+    toast.info(t('feed.nothingUnreadIn', { name: emptyLabel }));
     return;
   }
-  toast.undo(`Marked ${ids.length} as read`, {
+  toast.undo(t('plural.marked', { count: ids.length }), {
+    label: t('common.undo'),
     onUndo: () => {
       void undoMarkAllRead(ids);
     },
@@ -47,17 +49,18 @@ async function markReadWithUndo(view: View, emptyLabel: string): Promise<void> {
 async function unsubscribe(feed: Feed): Promise<void> {
   const snapshot = await removeFeed(feed.id);
   if (!snapshot) {
-    toast.info(`${feed.title} was already removed`);
+    toast.info(t('feed.alreadyRemoved', { title: feed.title }));
     return;
   }
   const ui = useUiStore.getState();
   if (ui.view.type === 'feed' && ui.view.feedId === feed.id) ui.setView({ type: 'all' });
-  toast.undo(`Unsubscribed from ${feed.title}`, {
-    description: `${snapshot.articles.length} articles removed`,
+  toast.undo(t('feed.unsubscribed', { title: feed.title }), {
+    label: t('common.undo'),
+    description: t('plural.removed', { count: snapshot.articles.length }),
     onUndo: () => {
       restoreFeed(snapshot).then(
-        () => toast.success(`Restored ${feed.title}`),
-        (err: unknown) => toast.error('Could not restore the feed', { description: messageOf(err) }),
+        () => toast.success(t('feed.restored', { title: feed.title })),
+        (err: unknown) => toast.error(t('feed.couldNotRestore'), { description: messageOf(err) }),
       );
     },
   });
@@ -66,9 +69,9 @@ async function unsubscribe(feed: Feed): Promise<void> {
 async function copyFeedUrl(url: string): Promise<void> {
   try {
     await navigator.clipboard.writeText(url);
-    toast.success('Feed URL copied');
+    toast.success(t('feed.urlCopied'));
   } catch {
-    toast.error('Could not copy the feed URL');
+    toast.error(t('feed.couldNotCopy'));
   }
 }
 
@@ -85,12 +88,13 @@ async function removeFolderWithUndo(folder: Folder): Promise<void> {
   await deleteFolder(folder.id);
   const ui = useUiStore.getState();
   if (ui.view.type === 'folder' && ui.view.folderId === folder.id) ui.setView({ type: 'all' });
-  toast.undo(`Deleted folder ${folder.name}`, {
-    description: feedIds.length > 0 ? `${feedIds.length} feeds moved out of it` : 'The folder was empty',
+  toast.undo(t('folder.deleted', { name: folder.name }), {
+    label: t('common.undo'),
+    description: feedIds.length > 0 ? t('plural.feedsMoved', { count: feedIds.length }) : t('folder.empty'),
     onUndo: () => {
       restoreFolder(folder, feedIds).then(
-        () => toast.success(`Restored folder ${folder.name}`),
-        (err: unknown) => toast.error('Could not restore the folder', { description: messageOf(err) }),
+        () => toast.success(t('folder.restored', { name: folder.name })),
+        (err: unknown) => toast.error(t('folder.couldNotRestore'), { description: messageOf(err) }),
       );
     },
   });
@@ -107,9 +111,10 @@ export interface FeedContextMenuProps {
 
 /** Actions for one feed: rename, move, favorite, mark read, copy URL, unsubscribe. Mounted only while open. */
 export function FeedContextMenu({ feed, anchorRef, onClose, onRename, onNewFolder }: FeedContextMenuProps) {
+  useT();
   const folders = useFolders();
   const move = (folderId: string | null) =>
-    run(() => moveFeedToFolder(feed.id, folderId), 'Could not move the feed');
+    run(() => moveFeedToFolder(feed.id, folderId), t('nav.couldNotMove'));
 
   return (
     <Menu
@@ -118,48 +123,48 @@ export function FeedContextMenu({ feed, anchorRef, onClose, onRename, onNewFolde
         if (!next) onClose();
       }}
       triggerRef={anchorRef}
-      label={`Actions for ${feed.title}`}
+      label={t('nav.actionsFor', { title: feed.title })}
       className="max-h-[60dvh] overflow-y-auto"
     >
       <MenuItem icon={Pencil} onClick={onRename}>
-        Rename
+        {t('nav.rename')}
       </MenuItem>
       <div role="separator" className="hairline-t my-1.5" />
       <div role="none" className="px-3 pt-1 pb-1 text-xs font-semibold tracking-[0.08em] text-text-faint uppercase">
-        Move to folder
+        {t('nav.moveToFolder')}
       </div>
       {(folders ?? []).map((folder) => (
         <MenuItem
           key={folder.id}
           icon={FolderIcon}
-          hint={folder.id === feed.folderId ? 'Current' : undefined}
+          hint={folder.id === feed.folderId ? t('common.current') : undefined}
           onClick={() => move(folder.id)}
         >
           {folder.name}
         </MenuItem>
       ))}
-      <MenuItem icon={Inbox} hint={feed.folderId === null ? 'Current' : undefined} onClick={() => move(null)}>
-        No folder
+      <MenuItem icon={Inbox} hint={feed.folderId === null ? t('common.current') : undefined} onClick={() => move(null)}>
+        {t('nav.noFolder')}
       </MenuItem>
       <MenuItem icon={FolderPlus} onClick={onNewFolder}>
-        New folder…
+        {t('nav.newFolderMenu')}
       </MenuItem>
       <div role="separator" className="hairline-t my-1.5" />
-      <MenuItem icon={Star} onClick={() => run(() => toggleFavoriteFeed(feed), 'Could not update the feed')}>
-        {feed.isFavorite === 1 ? 'Unfavorite feed' : 'Favorite feed (notify)'}
+      <MenuItem icon={Star} onClick={() => run(() => toggleFavoriteFeed(feed), t('nav.couldNotUpdateFeed'))}>
+        {feed.isFavorite === 1 ? t('nav.unfavoriteFeed') : t('nav.favoriteFeed')}
       </MenuItem>
       <MenuItem
         icon={CheckCheck}
-        onClick={() => run(() => markReadWithUndo({ type: 'feed', feedId: feed.id }, feed.title), 'Could not mark as read')}
+        onClick={() => run(() => markReadWithUndo({ type: 'feed', feedId: feed.id }, feed.title), t('nav.couldNotMarkRead'))}
       >
-        Mark all read
+        {t('nav.markAllRead')}
       </MenuItem>
       <MenuItem icon={LinkIcon} onClick={() => void copyFeedUrl(feed.url)}>
-        Copy feed URL
+        {t('nav.copyFeedUrl')}
       </MenuItem>
       <div role="separator" className="hairline-t my-1.5" />
-      <MenuItem icon={Trash2} destructive onClick={() => run(() => unsubscribe(feed), 'Could not unsubscribe')}>
-        Unsubscribe
+      <MenuItem icon={Trash2} destructive onClick={() => run(() => unsubscribe(feed), t('nav.couldNotUnsubscribe'))}>
+        {t('nav.unsubscribe')}
       </MenuItem>
     </Menu>
   );
@@ -174,6 +179,7 @@ export interface FolderContextMenuProps {
 
 /** Actions for one folder: rename, mark all read, delete (feeds become unfiled, undoable). */
 export function FolderContextMenu({ folder, anchorRef, onClose, onRename }: FolderContextMenuProps) {
+  useT();
   return (
     <Menu
       open
@@ -181,20 +187,20 @@ export function FolderContextMenu({ folder, anchorRef, onClose, onRename }: Fold
         if (!next) onClose();
       }}
       triggerRef={anchorRef}
-      label={`Actions for folder ${folder.name}`}
+      label={t('nav.actionsForFolder', { name: folder.name })}
     >
       <MenuItem icon={Pencil} onClick={onRename}>
-        Rename
+        {t('nav.rename')}
       </MenuItem>
       <MenuItem
         icon={CheckCheck}
-        onClick={() => run(() => markReadWithUndo({ type: 'folder', folderId: folder.id }, folder.name), 'Could not mark as read')}
+        onClick={() => run(() => markReadWithUndo({ type: 'folder', folderId: folder.id }, folder.name), t('nav.couldNotMarkRead'))}
       >
-        Mark all read
+        {t('nav.markAllRead')}
       </MenuItem>
       <div role="separator" className="hairline-t my-1.5" />
-      <MenuItem icon={Trash2} destructive onClick={() => run(() => removeFolderWithUndo(folder), 'Could not delete the folder')}>
-        Delete folder
+      <MenuItem icon={Trash2} destructive onClick={() => run(() => removeFolderWithUndo(folder), t('nav.couldNotDeleteFolder'))}>
+        {t('nav.deleteFolder')}
       </MenuItem>
     </Menu>
   );

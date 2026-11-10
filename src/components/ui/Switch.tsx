@@ -34,7 +34,10 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
         className={cn(
           'block size-4 rounded-full shadow-1',
           'transition-transform duration-[var(--duration-base)] ease-spring',
-          checked ? 'translate-x-[18px] bg-text-inverse' : 'translate-x-0.5 bg-silver',
+          // The knob sits at the start edge; in RTL the travel is mirrored.
+          checked
+            ? 'translate-x-[18px] rtl:-translate-x-[18px] bg-text-inverse'
+            : 'translate-x-0.5 rtl:-translate-x-0.5 bg-silver',
         )}
       />
     </button>

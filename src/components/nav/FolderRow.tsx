@@ -3,6 +3,7 @@ import { ChevronRight, Folder as FolderIcon, FolderOpen, MoreHorizontal } from '
 import { IconButton } from '@/components/ui/IconButton';
 import { Tooltip } from '@/components/ui/Tooltip';
 import type { Folder } from '@/db/schema';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { InlineRename, NavRowBadge, NavRowButton } from '@/components/nav/NavRow';
 
@@ -40,15 +41,16 @@ export function FolderRow({
   onRenameCommit,
   onRenameCancel,
 }: FolderRowProps) {
+  useT();
   if (renaming) {
     return (
       <li className="px-2">
-        <InlineRename label="Folder name" initial={folder.name} onCommit={onRenameCommit} onCancel={onRenameCancel} />
+        <InlineRename label={t('nav.folderName')} initial={folder.name} onCommit={onRenameCommit} onCancel={onRenameCancel} />
       </li>
     );
   }
 
-  const label = `${folder.name}, ${unreadCount} unread`;
+  const label = t('nav.folderLabel', { name: folder.name, count: unreadCount });
   const Icon = expanded ? FolderOpen : FolderIcon;
 
   const nameButton = (
@@ -91,7 +93,7 @@ export function FolderRow({
             data-folder-toggle={folder.id}
             aria-expanded={expanded}
             aria-controls={childrenId}
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} folder ${folder.name}`}
+            aria-label={expanded ? t('nav.collapseFolder', { name: folder.name }) : t('nav.expandFolder', { name: folder.name })}
             onClick={onToggle}
             className="focus-ring flex size-8 shrink-0 items-center justify-center rounded-sm text-text-muted hover:bg-card hover:text-text"
           >
@@ -99,17 +101,17 @@ export function FolderRow({
               aria-hidden="true"
               size={16}
               strokeWidth={1.75}
-              className={cn('transition-transform duration-[var(--duration-base)] ease-standard', expanded && 'rotate-90')}
+              className={cn('rtl:-scale-x-100 transition-transform duration-[var(--duration-base)] ease-standard', expanded && 'rotate-90')}
             />
           </button>
           {nameButton}
           <IconButton
-            label={`More actions for folder ${folder.name}`}
+            label={t('nav.moreFolder', { name: folder.name })}
             icon={MoreHorizontal}
             size="sm"
             tabIndex={-1}
             aria-haspopup="menu"
-            className="ml-0.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
+            className="ms-0.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
             onClick={(e) => onContextMenu(e, folder)}
           />
         </>

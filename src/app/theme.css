@@ -30,6 +30,8 @@
   --color-accent-active: #0097B8;
   --color-accent-soft:   rgba(0, 180, 216, 0.12);
   --color-accent-glow:   rgba(0, 180, 216, 0.35);
+  /* Readable text on top of --color-accent (set per preset and per custom accent). */
+  --color-on-accent:     #0F1115;
 
   /* ---- Semantic ---- */
   --color-success:       #3DDC97;
@@ -64,9 +66,13 @@
   --radius-full: 9999px;
 
   /* ---- 2.1 Fonts ---- */
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  /* --font-sans-base is the sans stack itself; --font-sans is what the UI uses and data-font can replace it. */
+  --font-sans-base: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-sans: var(--font-sans-base);
   --font-reading: "Iowan Old Style", "Palatino Linotype", Palatino, "Source Serif 4", Charter, "Literata", Georgia, Cambria, "Times New Roman", serif;
-  --font-mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* OpenDyslexic (SIL OFL), faces loaded by features/appearance/fonts.ts. */
+  --font-dyslexic: "OpenDyslexic", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* ---- 2.2 Extra text size ---- */
   --text-md: 15px;
@@ -218,18 +224,20 @@
   .hairline   { border: 1px solid var(--color-border); }
   .hairline-t { border-top: 1px solid var(--color-border); }
   .hairline-b { border-bottom: 1px solid var(--color-border); }
-  .hairline-r { border-right: 1px solid var(--color-border); }
+  /* Logical hairlines: the end/start edge flips with the writing direction (RTL). */
+  .hairline-e { border-inline-end: 1px solid var(--color-border); }
+  .hairline-s { border-inline-start: 1px solid var(--color-border); }
 
-  /* 1.4 Glass */
+  /* 1.4 Glass (tinted from the panel tokens so every preset gets its own glass) */
   .glass {
-    background: rgba(26, 29, 36, 0.72);
+    background: color-mix(in srgb, var(--color-panel) 72%, transparent);
     -webkit-backdrop-filter: blur(16px) saturate(140%);
     backdrop-filter: blur(16px) saturate(140%);
     border: 1px solid var(--color-border);
     box-shadow: var(--inner-highlight), var(--shadow-2);
   }
   .glass-strong {
-    background: rgba(32, 36, 45, 0.86);
+    background: color-mix(in srgb, var(--color-panel-raised) 86%, transparent);
     -webkit-backdrop-filter: blur(24px) saturate(150%);
     backdrop-filter: blur(24px) saturate(150%);
     border: 1px solid var(--color-border-strong);
@@ -322,3 +330,155 @@
     --color-text-muted: #B4BBC6;
   }
 }
+
+/*
+ * Theme presets (features/appearance). Set on <html data-theme>. `metallic` is the :root default above.
+ * Each block only overrides tokens that exist in the base layer; `system` is resolved to one of these
+ * in JavaScript (resolveTheme). Contrast targets: body text >= 7:1 on the preset surface, muted text
+ * >= 4.5:1. Keep the surface colours in step with THEME_META_COLOR in features/appearance/appearance.ts.
+ */
+
+/* Each preset also matches [data-theme] on any element, so the Settings swatches can show a preset in place. */
+
+/* Metallic is the :root default; this block lets a swatch show it while another preset is active. */
+[data-theme='metallic'] {
+  --color-bg: #0F1115;
+  --color-panel: #1A1D24;
+  --color-accent: #00B4D8;
+  --color-on-accent: #0F1115;
+}
+
+/* OLED: pure black surfaces, the same lightness steps as metallic but true black at the bottom. */
+:root[data-theme='oled'],
+[data-theme='oled'] {
+  color-scheme: dark;
+  --color-bg: #000000;
+  --color-bg-deep: #000000;
+  --color-panel: #0A0A0C;
+  --color-panel-raised: #111114;
+  --color-card: #17171C;
+  --color-card-hover: #1F1F26;
+  --color-card-active: #26262F;
+  --color-border: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-text-faint: #7A8290;
+  --gradient-steel:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px,
+      transparent 1px, transparent 3px),
+    linear-gradient(180deg, #0C0C0F 0%, #08080A 55%, #000000 100%);
+  --gradient-card: linear-gradient(160deg, #15151A 0%, #111114 45%, #0D0D10 100%);
+  --gradient-fade-bg: linear-gradient(180deg, rgba(0,0,0,0) 0%, #000000 100%);
+}
+
+/* Sepia: warm light paper with dark brown text. Shadows and highlights are brown-tinted, not grey. */
+:root[data-theme='sepia'],
+[data-theme='sepia'] {
+  color-scheme: light;
+  --color-bg: #F4ECD8;
+  --color-bg-deep: #E9DFC7;
+  --color-panel: #FBF6EA;
+  --color-panel-raised: #FFFAF0;
+  --color-card: #EFE5CD;
+  --color-card-hover: #E6DBC0;
+  --color-card-active: #DCCFB2;
+  --color-silver: #3B2F22;
+  --color-text: #22190F;
+  --color-text-muted: #5E4D39;
+  --color-text-faint: #7A6850;
+  --color-text-inverse: #FBF6EA;
+  --color-border: rgba(60, 40, 20, 0.14);
+  --color-border-strong: rgba(60, 40, 20, 0.24);
+  --color-border-accent: rgba(138, 75, 18, 0.45);
+  --color-accent: #8A4B12;
+  --color-accent-hover: #9C5A1C;
+  --color-accent-active: #6D3A0D;
+  --color-accent-soft: rgba(138, 75, 18, 0.12);
+  --color-accent-glow: rgba(138, 75, 18, 0.30);
+  --color-on-accent: #FBF6EA;
+  --color-focus: rgba(138, 75, 18, 0.75);
+  --color-link-underline: rgba(138, 75, 18, 0.45);
+  --color-success: #2E7D55;
+  --color-danger: #B42335;
+  --color-warning: #8A5F00;
+  --color-scroll-thumb: rgba(60, 40, 20, 0.22);
+  --color-scroll-thumb-hover: rgba(60, 40, 20, 0.36);
+  --inner-highlight:
+    inset 0 1px 0 rgba(255,255,255,0.6),
+    inset 0 -1px 0 rgba(60,40,20,0.12);
+  --inner-highlight-strong:
+    inset 0 1px 0 rgba(255,255,255,0.8),
+    inset 0 -1px 0 rgba(60,40,20,0.20);
+  --inner-well:
+    inset 0 1px 2px rgba(60,40,20,0.18),
+    inset 0 -1px 0 rgba(255,255,255,0.5);
+  --shadow-1: 0 1px 2px rgba(60,40,20,0.18), 0 1px 1px rgba(60,40,20,0.12);
+  --shadow-2: 0 4px 12px rgba(60,40,20,0.20), 0 1px 3px rgba(60,40,20,0.15);
+  --shadow-3: 0 16px 40px rgba(60,40,20,0.28), 0 4px 12px rgba(60,40,20,0.18);
+  --shadow-accent: 0 0 0 1px rgba(138,75,18,0.45), 0 4px 16px rgba(138,75,18,0.20);
+  --gradient-steel:
+    repeating-linear-gradient(90deg,
+      rgba(60,40,20,0.025) 0px, rgba(60,40,20,0.025) 1px,
+      transparent 1px, transparent 3px),
+    linear-gradient(180deg, #FBF6EA 0%, #F1E8D3 55%, #E8DCC1 100%);
+  --gradient-card: linear-gradient(160deg, #FBF6EA 0%, #F2E9D5 45%, #EBE0C7 100%);
+  --gradient-accent: linear-gradient(180deg, #A2601F 0%, #8A4B12 60%, #74400F 100%);
+  --gradient-fade-bg: linear-gradient(180deg, rgba(244,236,216,0) 0%, #F4ECD8 100%);
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-focus);
+}
+
+/* High contrast: black and white, strong borders, a yellow focus ring. Body text is 7:1 or better. */
+:root[data-theme='contrast'],
+[data-theme='contrast'] {
+  color-scheme: dark;
+  --color-bg: #000000;
+  --color-bg-deep: #000000;
+  --color-panel: #000000;
+  --color-panel-raised: #0A0A0A;
+  --color-card: #141414;
+  --color-card-hover: #1E1E1E;
+  --color-card-active: #2A2A2A;
+  --color-silver: #FFFFFF;
+  --color-text: #FFFFFF;
+  --color-text-muted: #E6E6E6;
+  --color-text-faint: #CFCFCF;
+  --color-text-inverse: #000000;
+  --color-border: rgba(255, 255, 255, 0.70);
+  --color-border-strong: #FFFFFF;
+  --color-border-accent: #3EE8FF;
+  --color-accent: #3EE8FF;
+  --color-accent-hover: #7FF0FF;
+  --color-accent-active: #00C4E0;
+  --color-accent-soft: rgba(62, 232, 255, 0.18);
+  --color-accent-glow: rgba(62, 232, 255, 0.50);
+  --color-on-accent: #000000;
+  --color-focus: #FFE14D;
+  --color-link-underline: #FFFFFF;
+  --color-success: #5BF0B0;
+  --color-danger: #FF7B88;
+  --color-warning: #FFD166;
+  --color-scroll-thumb: rgba(255, 255, 255, 0.60);
+  --color-scroll-thumb-hover: #FFFFFF;
+  --inner-highlight: inset 0 0 0 1px rgba(255,255,255,0.35);
+  --inner-highlight-strong: inset 0 0 0 1px #FFFFFF;
+  --inner-well: inset 0 0 0 1px rgba(255,255,255,0.55);
+  --shadow-1: 0 0 0 1px rgba(255,255,255,0.4);
+  --shadow-2: 0 0 0 1px rgba(255,255,255,0.5);
+  --shadow-3: 0 0 0 2px #FFFFFF;
+  --shadow-accent: 0 0 0 2px #3EE8FF;
+  --gradient-steel: linear-gradient(180deg, #0A0A0A 0%, #000000 100%);
+  --gradient-card: #0A0A0A;
+  --gradient-accent: linear-gradient(180deg, #7FF0FF 0%, #3EE8FF 60%, #00C4E0 100%);
+  --gradient-fade-bg: linear-gradient(180deg, rgba(0,0,0,0) 0%, #000000 100%);
+  --focus-ring: 0 0 0 2px #000000, 0 0 0 5px #FFE14D;
+}
+
+:root[data-theme='contrast'] *:focus-visible {
+  outline: 3px solid #FFE14D;
+  outline-offset: 2px;
+}
+
+/* Fonts: data-font swaps the UI body font (the reader has its own switch, see readerPrefs.ts). */
+:root[data-font='serif'] { --font-sans: var(--font-reading); }
+:root[data-font='mono'] { --font-sans: var(--font-mono); }
+:root[data-font='dyslexic'] { --font-sans: var(--font-dyslexic); }

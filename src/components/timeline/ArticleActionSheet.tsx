@@ -14,6 +14,7 @@ import { useArticle } from '@/features/articles/articleQueries';
 import { useFeedMap } from '@/features/feeds/feedQueries';
 import { share } from '@/features/sharing/share';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
 import { useDialog } from '@/store/selectors';
@@ -62,37 +63,37 @@ function buildActions(article: Article, siteUrl: string | undefined): SheetActio
   return [
     {
       key: 'read',
-      label: read ? 'Mark as unread' : 'Mark as read',
+      label: read ? t('article.markUnread') : t('article.markRead'),
       icon: read ? Circle : CircleCheck,
-      run: then(() => report(toggleReadWithToast(id), 'Could not update read state')),
+      run: then(() => report(toggleReadWithToast(id), t('article.couldNotReadState'))),
     },
     {
       key: 'favorite',
-      label: favorite ? 'Unfavorite' : 'Favorite',
+      label: favorite ? t('article.unfavorite') : t('article.favorite'),
       icon: Star,
-      run: then(() => report(toggleFavoriteWithToast(id), 'Could not update favorite')),
+      run: then(() => report(toggleFavoriteWithToast(id), t('article.couldNotFavorite'))),
     },
     {
       key: 'readLater',
-      label: readLater ? 'Remove from Read later' : 'Read later',
+      label: readLater ? t('article.removeReadLaterMenu') : t('article.readLater'),
       icon: Bookmark,
-      run: then(() => report(toggleReadLaterWithToast(id), 'Could not update read later')),
+      run: then(() => report(toggleReadLaterWithToast(id), t('article.couldNotLater'))),
     },
     {
       key: 'share',
-      label: 'Share',
+      label: t('article.share'),
       icon: Share2,
       run: then(() => {
         if (!url) {
-          toast.info('This article has no link to share');
+          toast.info(t('article.noLink'));
           return;
         }
-        report(share({ title: article.title, url, text: article.title }), 'Could not share the article');
+        report(share({ title: article.title, url, text: article.title }), t('article.couldNotShare'));
       }),
     },
     {
       key: 'open',
-      label: 'Open original in new tab',
+      label: t('article.openOriginalTab'),
       icon: ExternalLink,
       disabled: !article.link,
       run: then(() => {
@@ -101,10 +102,10 @@ function buildActions(article: Article, siteUrl: string | undefined): SheetActio
     },
     {
       key: 'delete',
-      label: 'Delete',
+      label: t('article.delete'),
       icon: Trash2,
       destructive: true,
-      run: then(() => report(deleteArticleWithUndo(id), 'Could not delete the article')),
+      run: then(() => report(deleteArticleWithUndo(id), t('article.couldNotDelete'))),
     },
   ];
 }
@@ -118,7 +119,7 @@ function SheetButton({ action }: { action: SheetAction }) {
       disabled={action.disabled}
       onClick={action.run}
       className={cn(
-        'focus-ring flex h-12 w-full items-center gap-3 rounded-sm px-3 text-left text-base select-none',
+        'focus-ring flex h-12 w-full items-center gap-3 rounded-sm px-3 text-start text-base select-none',
         'transition-colors duration-[var(--duration-instant)] ease-standard',
         'hover:bg-card active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50',
         action.destructive ? 'text-danger' : 'text-silver hover:text-text',
@@ -132,6 +133,7 @@ function SheetButton({ action }: { action: SheetAction }) {
 
 /** Article actions for the long-press / context-menu gesture. Reads its target from the `articleActions` dialog slot. */
 export function ArticleActionSheet() {
+  useT();
   const payload = useDialog('articleActions');
   const isMobile = useIsMobile();
   const open = payload !== false;
@@ -175,7 +177,7 @@ export function ArticleActionSheet() {
       <Dialog
         open={open && isMobile}
         onOpenChange={onOpenChange}
-        title={article?.title ?? 'Article actions'}
+        title={article?.title ?? t('sheet.title')}
         description={feed?.title}
         placement="bottom"
       >
@@ -197,7 +199,7 @@ export function ArticleActionSheet() {
         open={open && !isMobile}
         onOpenChange={onOpenChange}
         triggerRef={anchorRef}
-        label={article ? `Actions for ${article.title}` : 'Article actions'}
+        label={article ? t('sheet.actionsFor', { title: article.title }) : t('sheet.title')}
       >
         {actions.map((action) => (
           <MenuItem

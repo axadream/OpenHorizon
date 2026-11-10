@@ -1,5 +1,6 @@
 import type { Feed } from '@/db/schema';
 import { runSyncFromPage } from '@/features/sync/scheduler';
+import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { withWebScheme } from '@/lib/url';
 import { useUiStore } from '@/store/uiStore';
@@ -25,7 +26,7 @@ export function toHttpUrl(input: string): string | null {
  * dialog and fetch its articles (the feed row alone has no items yet).
  */
 export function onFeedSubscribed(feed: Feed): void {
-  toast.success(`Subscribed to ${feed.title}`);
+  toast.success(t('add.subscribed', { title: feed.title }));
   const ui = useUiStore.getState();
   ui.setView({ type: 'feed', feedId: feed.id });
   ui.closeDialog('addFeed');

@@ -40,9 +40,14 @@ OpenHorizon is a mobile-first, installable PWA RSS reader inspired by the free d
 - **Offline first**: articles are stored locally in IndexedDB (through Dexie), so you can read offline after your first visit.
 - **Background sync**: refresh every 15 minutes, 30 minutes or 1 hour, or sync manually. Periodic Background Sync is used where the browser supports it. Favorite feeds can send system notifications.
 - **Sharing**: the Web Share API, with a fallback sheet for X, WhatsApp, Telegram, Reddit, LinkedIn, Facebook, email and copy link.
-- **Reader preferences**: text size, line height, serif or sans-serif font, column width, image display and fullscreen reading.
+- **Reader preferences**: text size, line height, column width, image display and fullscreen reading, with four fonts: Serif, Sans, Mono and Dyslexic.
+- **Themes**: Metallic (default), OLED black, Sepia, High contrast and System, with a custom accent colour (any colour, or one of eight presets; the text on it is chosen for contrast).
+- **Fonts**: Sans, Serif, Mono and Dyslexic (OpenDyslexic) for the whole interface, not only the reader.
+- **Layouts**: Comfortable, List (one line per article), Cards (larger thumbnails and summaries) and Reading (full-width reader with the article list as a slide-over). Density adjusts the spacing.
+- **Sounds**: optional, synthesized chimes for sync results, bookmarks, deletes and errors, with volume and preview. Off by default.
+- **Languages**: English, Romanian and Arabic (with right-to-left layout), chosen in Settings or automatic from your browser.
 - **Keyboard navigation**: every common action has a shortcut (see [Keyboard shortcuts](#keyboard-shortcuts)).
-- **Accessible**: landmarks, listbox semantics for the article list and visible focus rings.
+- **Accessible**: landmarks, listbox semantics for the article list, visible focus rings and high contrast and dyslexia-friendly options.
 
 ## Screenshots
 
@@ -215,6 +220,8 @@ OpenHorizon also builds on excellent open-source work:
 - [Dexie](https://dexie.org/) for IndexedDB storage
 - [Workbox](https://developer.chrome.com/docs/workbox/) for the service worker
 - [Tailwind CSS](https://tailwindcss.com/) for styling
+- [OpenDyslexic](https://opendyslexic.org/), the Dyslexic font, bundled through [@fontsource/opendyslexic](https://fontsource.org/fonts/opendyslexic). Licensed under the **SIL Open Font License 1.1** (the licence text ships in the package).
+- Sans, Serif and Mono use the system font stacks; no other fonts are bundled.
 
 ## License
 

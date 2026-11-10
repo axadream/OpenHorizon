@@ -3,7 +3,17 @@
 export const FONT_SIZES = [15, 17, 19, 21, 24] as const;        // px, step 0..4 (default 2)
 export const LINE_HEIGHTS = [1.5, 1.7, 1.9] as const;           // step 0..2 (default 1)
 export const MEASURES = { narrow: '68ch', wide: '92ch' } as const;
-export const FONT_FAMILIES = { serif: 'var(--font-reading)', sans: 'var(--font-sans)' } as const;
+
+/** Reader body fonts, in the order the switch shows them. Same list as the UI font setting. */
+export const READER_FONTS = ['serif', 'sans', 'mono', 'dyslexic'] as const;
+export type ReaderFont = (typeof READER_FONTS)[number];
+
+export const FONT_FAMILIES: Record<ReaderFont, string> = {
+  serif: 'var(--font-reading)',
+  sans: 'var(--font-sans-base)',
+  mono: 'var(--font-mono)',
+  dyslexic: 'var(--font-dyslexic)',
+};
 
 export type FontSizeStep = 0 | 1 | 2 | 3 | 4;
 export type LineHeightStep = 0 | 1 | 2;
@@ -11,7 +21,7 @@ export type LineHeightStep = 0 | 1 | 2;
 export interface ReaderPrefs {
   fontSize: FontSizeStep;
   lineHeight: LineHeightStep;
-  font: 'serif' | 'sans';
+  font: ReaderFont;
   width: 'narrow' | 'wide';
   /** Show images and media in the article body and the hero image. */
   images: boolean;

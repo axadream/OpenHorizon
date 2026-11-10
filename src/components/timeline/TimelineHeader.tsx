@@ -9,6 +9,7 @@ import { Menu, MenuItem } from '@/components/ui/Menu';
 import { useSetting } from '@/features/settings/settings';
 import { markAllRead, undoMarkAllRead } from '@/features/articles/articleActions';
 import { queryUnreadIds } from '@/features/articles/articleQueries';
+import { t, useT } from '@/i18n/i18n';
 import { useRovingFocus } from '@/hooks/useRovingFocus';
 import { useNow } from '@/hooks/useNow';
 import { syncAll } from '@/features/sync/syncAll';
@@ -37,10 +38,10 @@ export async function refreshAll(): Promise<void> {
     });
     useUiStore.getState().setRecentlyFetchedCutoff(result.startedAt);
     if (result.errorCount > 0) {
-      toast.error(`Sync failed for ${result.errorCount} ${result.errorCount === 1 ? 'feed' : 'feeds'}`);
+      toast.error(t('plural.syncFailed', { count: result.errorCount }));
     }
   } catch {
-    toast.error('Sync failed');
+    toast.error(t('timeline.syncFailed'));
   } finally {
     useUiStore.getState().setSyncing(false);
   }
@@ -50,13 +51,13 @@ async function commitMarkAll(view: View): Promise<void> {
   try {
     const ids = await markAllRead(view);
     if (ids.length === 0) return;
-    toast.undo(`Marked ${ids.length} as read`, {
+    toast.undo(t('plural.marked', { count: ids.length }), {
       onUndo: () => {
-        undoMarkAllRead(ids).catch(() => toast.error('Could not undo'));
+        undoMarkAllRead(ids).catch(() => toast.error(t('timeline.couldNotUndo')));
       },
     });
   } catch {
-    toast.error('Could not mark articles as read');
+    toast.error(t('timeline.couldNotMark'));
   }
 }
 
@@ -69,7 +70,7 @@ function SortItems({ sort }: { sort: TimelineSort }) {
         className={sort === 'newest' ? 'text-accent' : undefined}
         onClick={() => setSort('newest')}
       >
-        Newest first
+        {t('timeline.newest')}
       </MenuItem>
       <MenuItem
         icon={ArrowUp}
@@ -77,7 +78,7 @@ function SortItems({ sort }: { sort: TimelineSort }) {
         className={sort === 'oldest' ? 'text-accent' : undefined}
         onClick={() => setSort('oldest')}
       >
-        Oldest first
+        {t('timeline.oldest')}
       </MenuItem>
     </>
   );
@@ -90,11 +91,11 @@ function SyncBar() {
   return (
     <div
       role="progressbar"
-      aria-label="Syncing feeds"
+      aria-label={t('timeline.syncing')}
       aria-valuemin={0}
       aria-valuemax={total > 0 ? total : undefined}
       aria-valuenow={total > 0 ? done : undefined}
-      aria-valuetext={total > 0 ? `${done} of ${total}` : 'Starting'}
+      aria-valuetext={total > 0 ? `${done} / ${total}` : t('timeline.starting')}
       className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"
     >
       {total > 0 ? (
@@ -122,6 +123,7 @@ export interface TimelineHeaderProps {
  * mark-all move into a "More" menu below the lg breakpoint.
  */
 export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps) {
+  useT();
   const { filter, sort } = useTimelineOptions();
   const syncing = useSyncing();
   const chipsRef = useRef<HTMLDivElement>(null);
@@ -139,7 +141,7 @@ export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps
     try {
       const ids = await queryUnreadIds(view);
       if (ids.length === 0) {
-        toast.info('Nothing to mark as read');
+        toast.info(t('timeline.nothingToMark'));
         return;
       }
       if (ids.length > CONFIRM_THRESHOLD) {
@@ -148,41 +150,41 @@ export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps
       }
       await commitMarkAll(view);
     } catch {
-      toast.error('Could not mark articles as read');
+      toast.error(t('timeline.couldNotMark'));
     }
   }
 
   return (
     <header className="steel hairline-b relative z-sticky flex h-[var(--toolbar-h)] shrink-0 items-center gap-1.5 px-3">
-      <IconButton label="Feeds" icon={PanelLeft} className="md:hidden" onClick={showFeeds} />
+      <IconButton label={t('timeline.feedsButton')} icon={PanelLeft} className="md:hidden" onClick={showFeeds} />
 
       <h2 className="min-w-0 truncate text-lg font-semibold tracking-[-0.01em] text-text">{title}</h2>
       <Badge count={unread} tone="accent" className="shrink-0" />
 
-      <div className="ml-auto flex shrink-0 items-center gap-1">
-        <div ref={chipsRef} role="radiogroup" aria-label="Filter" className="mr-1 flex items-center gap-1">
+      <div className="ms-auto flex shrink-0 items-center gap-1">
+        <div ref={chipsRef} role="radiogroup" aria-label={t('timeline.filter')} className="me-1 flex items-center gap-1">
           <Chip selected={filter === 'all'} onClick={() => setFilter('all')}>
-            All
+            {t('timeline.filterAll')}
           </Chip>
           <Chip selected={filter === 'unread'} onClick={() => setFilter('unread')}>
-            Unread
+            {t('timeline.filterUnread')}
           </Chip>
         </div>
 
         <div className="hidden items-center gap-0.5 lg:flex">
           <IconButton
             ref={sortRef}
-            label="Sort"
+            label={t('timeline.sort')}
             icon={ArrowUpDown}
             aria-haspopup="menu"
             aria-expanded={sortOpen}
             onClick={() => setSortOpen((o) => !o)}
           />
-          <Menu open={sortOpen} onOpenChange={setSortOpen} triggerRef={sortRef} align="end" label="Sort order">
+          <Menu open={sortOpen} onOpenChange={setSortOpen} triggerRef={sortRef} align="end" label={t('timeline.sortOrder')}>
             <SortItems sort={sort} />
           </Menu>
           <IconButton
-            label="Mark all as read"
+            label={t('timeline.markAll')}
             icon={CheckCheck}
             disabled={unread === 0}
             onClick={() => void markAll()}
@@ -191,22 +193,22 @@ export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps
 
         <IconButton
           ref={moreRef}
-          label="More timeline actions"
+          label={t('timeline.more')}
           icon={MoreHorizontal}
           className="lg:hidden"
           aria-haspopup="menu"
           aria-expanded={moreOpen}
           onClick={() => setMoreOpen((o) => !o)}
         />
-        <Menu open={moreOpen} onOpenChange={setMoreOpen} triggerRef={moreRef} align="end" label="Timeline actions">
+        <Menu open={moreOpen} onOpenChange={setMoreOpen} triggerRef={moreRef} align="end" label={t('timeline.moreTitle')}>
           <SortItems sort={sort} />
           <MenuItem icon={CheckCheck} disabled={unread === 0} onClick={() => void markAll()}>
-            Mark all as read
+            {t('timeline.markAll')}
           </MenuItem>
         </Menu>
 
         <IconButton
-          label="Refresh"
+          label={t('timeline.refresh')}
           icon={RefreshCw}
           disabled={syncing}
           aria-busy={syncing || undefined}
@@ -222,12 +224,12 @@ export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps
         onOpenChange={(open) => {
           if (!open) setConfirmCount(null);
         }}
-        title="Mark all as read?"
-        description={`${confirmCount ?? 0} articles in this view will be marked as read. You can undo right after.`}
+        title={t('timeline.markAllConfirm')}
+        description={t('plural.willMarkRead', { count: confirmCount ?? 0 })}
         footer={
           <>
             <Button variant="ghost" onClick={() => setConfirmCount(null)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -236,7 +238,7 @@ export function TimelineHeader({ view, title, unreadCount }: TimelineHeaderProps
                 void commitMarkAll(view);
               }}
             >
-              Mark as read
+              {t('timeline.markAllConfirmAction')}
             </Button>
           </>
         }
@@ -271,21 +273,27 @@ export interface TimelineStatusProps {
 
 /** Sub-header: counts, last sync time, and the offline notice. Hidden while the list is empty and online. */
 export function TimelineStatus({ count, unreadCount }: TimelineStatusProps) {
+  useT();
   const lastSyncAt = useSetting('lastSyncAt');
   const now = useNow();
   const online = useIsOnline();
   if (count === 0 && online) return null;
+  const sync = lastSyncAt ? t('timeline.updated', { time: timeAgo(lastSyncAt, now) }) : t('timeline.notSynced');
   return (
     <div className="flex h-7 shrink-0 items-center gap-3 overflow-hidden px-3 text-xs text-text-muted tabular-nums">
       {!online ? (
         <span className="inline-flex shrink-0 items-center gap-1.5">
           <WifiOff aria-hidden="true" size={14} strokeWidth={1.75} />
-          Offline — showing cached articles
+          {t('timeline.offline')}
         </span>
       ) : null}
       {count > 0 ? (
         <span className="min-w-0 truncate">
-          {`${count} articles · ${unreadCount ?? 0} unread · ${lastSyncAt ? `updated ${timeAgo(lastSyncAt, now)}` : 'not synced yet'}`}
+          {t('timeline.statusLine', {
+            articles: t('plural.articles', { count }),
+            unread: t('plural.unread', { count: unreadCount ?? 0 }),
+            sync,
+          })}
         </span>
       ) : null}
     </div>

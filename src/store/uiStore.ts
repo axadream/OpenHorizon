@@ -4,8 +4,10 @@ import {
   DEFAULT_READER_PREFS,
   FONT_SIZES,
   LINE_HEIGHTS,
+  READER_FONTS,
   type FontSizeStep,
   type LineHeightStep,
+  type ReaderFont,
   type ReaderPrefs,
 } from '@/features/reader/readerPrefs';
 import { viewKey, type DialogName, type DialogPayloads, type DialogSlots, type OpenDialogArgs, type PersistedUiState, type UIState } from './types';
@@ -29,7 +31,7 @@ export function sanitizeReaderPrefs(raw: unknown): ReaderPrefs {
   return {
     fontSize: isStep<FontSizeStep>(r.fontSize, FONT_SIZES.length - 1) ? r.fontSize : DEFAULT_READER_PREFS.fontSize,
     lineHeight: isStep<LineHeightStep>(r.lineHeight, LINE_HEIGHTS.length - 1) ? r.lineHeight : DEFAULT_READER_PREFS.lineHeight,
-    font: r.font === 'serif' || r.font === 'sans' ? r.font : DEFAULT_READER_PREFS.font,
+    font: (READER_FONTS as readonly unknown[]).includes(r.font) ? (r.font as ReaderFont) : DEFAULT_READER_PREFS.font,
     width: r.width === 'narrow' || r.width === 'wide' ? r.width : DEFAULT_READER_PREFS.width,
     images: typeof r.images === 'boolean' ? r.images : DEFAULT_READER_PREFS.images,
     keepScreenOn: typeof r.keepScreenOn === 'boolean' ? r.keepScreenOn : DEFAULT_READER_PREFS.keepScreenOn,
@@ -61,6 +63,7 @@ export const useUiStore = create<UIState>()(
       selectedArticleId: null,
       mobilePane: 'timeline',
       readerFullscreen: false,
+      timelineOverlay: false,
       // persisted
       navCollapsed: false,
       readerPrefs: DEFAULT_READER_PREFS,
@@ -94,6 +97,8 @@ export const useUiStore = create<UIState>()(
       setMobilePane: (p) => set({ mobilePane: p }),
       toggleNavCollapsed: () => set((s) => ({ navCollapsed: !s.navCollapsed })),
       setReaderFullscreen: (on) => set({ readerFullscreen: on }),
+      setTimelineOverlay: (open) => set({ timelineOverlay: open }),
+      toggleTimelineOverlay: () => set((s) => ({ timelineOverlay: !s.timelineOverlay })),
       setTimelineFilter: (f) => set({ timelineFilter: f }),
       setTimelineSort: (s) => set({ timelineSort: s }),
       loadMore: () => set((s) => ({ timelineLimit: s.timelineLimit + PAGE_SIZE })),

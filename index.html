@@ -2,6 +2,70 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Boot appearance: runs before first paint so theme, font, layout, accent and direction never flash.
+         Reads localStorage 'oh-appearance' (shape: features/appearance/appearance.ts). Must mirror
+         parseAppearance and resolveTheme; bootScript.test.ts runs this block against them. Keep it ES5. -->
+    <script id="oh-boot">
+      (function () {
+        try {
+          var root = document.documentElement;
+          var raw = null;
+          try {
+            raw = localStorage.getItem('oh-appearance');
+          } catch (e) {
+            raw = null;
+          }
+          var stored = raw ? JSON.parse(raw) : null;
+          var s = stored && stored.state && typeof stored.state === 'object' ? stored.state : {};
+          function pick(value, list, fallback) {
+            return list.indexOf(value) >= 0 ? value : fallback;
+          }
+          var theme = pick(s.theme, ['metallic', 'oled', 'sepia', 'contrast', 'system'], 'metallic');
+          var font = pick(s.font, ['sans', 'serif', 'mono', 'dyslexic'], 'sans');
+          var layout = pick(s.layoutMode, ['comfortable', 'list', 'cards', 'reading'], 'comfortable');
+          var language = pick(s.language, ['auto', 'en', 'ro', 'ar'], 'auto');
+          var accent = typeof s.accent === 'string' && /^#?[0-9a-f]{6}$/i.test(s.accent.trim())
+            ? '#' + s.accent.trim().replace('#', '').toLowerCase()
+            : null;
+          var hasMatch = typeof window.matchMedia === 'function';
+          var light = hasMatch && window.matchMedia('(prefers-color-scheme: light)').matches;
+          var more = hasMatch && window.matchMedia('(prefers-contrast: more)').matches;
+          var resolved = theme !== 'system' ? theme : more ? 'contrast' : light ? 'sepia' : 'metallic';
+          root.setAttribute('data-theme', resolved);
+          root.setAttribute('data-font', font);
+          root.setAttribute('data-layout', layout);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          var metaColors = { metallic: '#0f1115', oled: '#000000', sepia: '#f4ecd8', contrast: '#000000' };
+          if (meta) meta.setAttribute('content', metaColors[resolved]);
+          if (accent) {
+            var n = parseInt(accent.slice(1), 16);
+            var lin = function (c) {
+              c = c / 255;
+              return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            };
+            var lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+            root.style.setProperty('--color-accent', accent);
+            root.style.setProperty('--color-on-accent', lum > 0.179 ? '#000000' : '#ffffff');
+          }
+          var locale = language;
+          if (locale === 'auto') {
+            var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
+            locale = 'en';
+            for (var i = 0; i < langs.length; i++) {
+              var primary = String(langs[i]).toLowerCase().split('-')[0];
+              if (primary === 'en' || primary === 'ro' || primary === 'ar') {
+                locale = primary;
+                break;
+              }
+            }
+          }
+          root.lang = locale;
+          root.dir = locale === 'ar' ? 'rtl' : 'ltr';
+        } catch (e) {
+          /* The app still starts with its default look. */
+        }
+      })();
+    </script>
     <meta name="theme-color" content="#0F1115" />
     <meta name="description" content="A modern metallic RSS reader" />
     <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />

@@ -1,5 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { playChime } from '@/features/audio/chimes';
 import { getSetting, useSetting } from '@/features/settings/settings';
+import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { activityPercent, startActivity, type ActivityHandle } from '@/store/activityStore';
 import { FEED_SYNC_ONCE_TAG, FEED_SYNC_TAG, intervalFor, type SyncFrequency } from './protocol';
@@ -77,27 +79,32 @@ export async function runSyncFromPage(opts: RunFromPageOptions = {}): Promise<Sy
           setStatus({ progress: { done, total } });
           if (total <= 0) return;
           const pct = activityPercent({ done, total }) ?? 0;
-          if (!progressActivity.handle) progressActivity.handle = startActivity({ label: 'Syncing feeds', total });
-          progressActivity.handle.update(done, total, `Syncing feed ${done} of ${total} (${pct}%)`);
+          if (!progressActivity.handle) progressActivity.handle = startActivity({ label: t('activity.syncing'), total });
+          progressActivity.handle.update(done, total, t('activity.syncingFeed', { done, total, percent: pct }));
         },
       });
       const failed = result.errorCount;
       const synced = result.results.length;
-      progressActivity.handle?.complete(`Synced ${synced} ${synced === 1 ? 'feed' : 'feeds'}`);
+      progressActivity.handle?.complete(t('plural.synced', { count: synced }));
       setStatus({
         lastRunAt: result.finishedAt,
-        lastError: failed > 0 ? `Sync failed for ${failed} ${failed === 1 ? 'feed' : 'feeds'}` : null,
+        lastError: failed > 0 ? t('plural.syncFailed', { count: failed }) : null,
       });
+      // Chimes: new articles, a quiet "done", or an error. Gated inside playChime (hidden page, settings, throttle).
+      if (failed > 0) void playChime('error');
+      else if (result.newArticles.length > 0) void playChime('refresh');
+      else void playChime('done');
       if (opts.manual) {
-        if (failed > 0) toast.error(`Sync failed for ${failed} ${failed === 1 ? 'feed' : 'feeds'}`);
-        else if (result.newArticles.length === 0) toast.info('No new articles');
+        if (failed > 0) toast.error(t('plural.syncFailed', { count: failed }));
+        else if (result.newArticles.length === 0) toast.info(t('timeline.noNew'));
       }
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       progressActivity.handle?.fail(message);
       setStatus({ lastError: message });
-      if (opts.manual) toast.error('Sync failed', { description: message });
+      void playChime('error');
+      if (opts.manual) toast.error(t('timeline.syncFailed'), { description: message });
       return null;
     } finally {
       setStatus({ running: false, progress: { done: 0, total: 0 } });
@@ -109,7 +116,7 @@ export async function runSyncFromPage(opts: RunFromPageOptions = {}): Promise<Sy
   let outcome: SyncAllResult | null = null;
   await navigator.locks.request('oh-sync', { ifAvailable: true }, async (lock) => {
     if (!lock) {
-      if (opts.manual) toast.info('A sync is already running in another tab');
+      if (opts.manual) toast.info(t('timeline.otherTab'));
       return;
     }
     outcome = await execute();

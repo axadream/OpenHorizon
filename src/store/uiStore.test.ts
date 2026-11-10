@@ -68,6 +68,14 @@ describe('persistence', () => {
     expect(sanitizeReaderPrefs(undefined)).toEqual(DEFAULT_READER_PREFS);
     expect(sanitizeReaderPrefs('x')).toEqual(DEFAULT_READER_PREFS);
   });
+
+  it('sanitizeReaderPrefs accepts the four reader fonts and rejects anything else', () => {
+    for (const font of ['serif', 'sans', 'mono', 'dyslexic'] as const) {
+      expect(sanitizeReaderPrefs({ font }).font).toBe(font);
+    }
+    expect(sanitizeReaderPrefs({ font: 'comic' }).font).toBe(DEFAULT_READER_PREFS.font);
+    expect(sanitizeReaderPrefs({ font: 'Dyslexic' }).font).toBe(DEFAULT_READER_PREFS.font);
+  });
 });
 
 describe('navigation actions', () => {

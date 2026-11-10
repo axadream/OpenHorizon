@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { playChime } from '@/features/audio/chimes';
+import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { OPEN_ARTICLE_EVENT, type PageToSw, type SwToPage } from './protocol';
 import { runSyncFromPage } from './scheduler';
@@ -40,7 +42,10 @@ export function useServiceWorkerBridge(): void {
           break;
         }
         case 'SYNC_COMPLETE': {
-          if (msg.newCount > 0) toast.info(`${msg.newCount} new ${msg.newCount === 1 ? 'article' : 'articles'}`);
+          if (msg.errorCount > 0) void playChime('error');
+          else if (msg.newCount > 0) void playChime('refresh');
+          else void playChime('done');
+          if (msg.newCount > 0) toast.info(t('plural.newArticles', { count: msg.newCount }));
           break;
         }
         case 'OPEN_ARTICLE': {

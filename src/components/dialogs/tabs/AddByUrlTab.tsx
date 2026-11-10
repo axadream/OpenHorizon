@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/Input';
 import { Switch } from '@/components/ui/Switch';
 import { db } from '@/db/db';
 import { AlreadySubscribedError, addFeedFromUrl, type AddFeedStep } from '@/features/feeds/addFeed';
+import { playChime } from '@/features/audio/chimes';
 import { startActivity } from '@/store/activityStore';
+import { t, useT } from '@/i18n/i18n';
 import { FetchAllFailedError } from '@/lib/proxy/fetchWithProxy';
 import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { NotAFeedError } from '@/lib/parser/types';
@@ -39,21 +41,21 @@ const VIA_LABEL: Record<string, string> = {
 };
 
 /** Percent reported for each add step, and the label shown while it runs. */
-const URL_STEPS: Record<AddFeedStep, { done: number; label: string }> = {
-  checking: { done: 10, label: 'Checking address' },
-  fetching: { done: 40, label: 'Fetching feed' },
-  parsing: { done: 75, label: 'Reading feed' },
-  saving: { done: 100, label: 'Saving feed' },
+const URL_STEPS: Record<AddFeedStep, { done: number; labelKey: 'add.stepChecking' | 'add.stepFetching' | 'add.stepParsing' | 'add.stepSaving' }> = {
+  checking: { done: 10, labelKey: 'add.stepChecking' },
+  fetching: { done: 40, labelKey: 'add.stepFetching' },
+  parsing: { done: 75, labelKey: 'add.stepParsing' },
+  saving: { done: 100, labelKey: 'add.stepSaving' },
 };
 
 function stepLabel(step: AddFeedStep): string {
-  const { done, label } = URL_STEPS[step];
-  return `${label} (${done}%)`;
+  const { done, labelKey } = URL_STEPS[step];
+  return `${t(labelKey)} (${done}%)`;
 }
 
 function describeError(err: unknown): UrlError {
   if (err instanceof AlreadySubscribedError) {
-    return { title: "You're already subscribed to this feed.", duplicateFeedId: err.feedId };
+    return { title: t('add.alreadySubscribed'), duplicateFeedId: err.feedId };
   }
   const diagnosis = diagnoseFetchError(err, { online: navigator.onLine });
   if (err instanceof FetchAllFailedError) {
@@ -67,6 +69,7 @@ function describeError(err: unknown): UrlError {
 }
 
 export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
+  useT();
   const uid = useId();
   const urlId = `${uid}-url`;
   const errorId = `${uid}-error`;
@@ -89,7 +92,7 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
 
     const target = toHttpUrl(url);
     if (!target) {
-      setError({ title: url.trim() ? 'Enter a valid web address' : 'Enter a feed URL' });
+      setError({ title: url.trim() ? t('add.invalid') : t('add.empty') });
       return;
     }
 
@@ -108,20 +111,21 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
         onProgress: (step) => activity.update(URL_STEPS[step].done, 100, stepLabel(step)),
       });
       if (notify) await db.feeds.update(feed.id, { isFavorite: 1 });
-      activity.complete(`Added ${feed.title}`);
+      activity.complete(t('add.added', { title: feed.title }));
       onFeedSubscribed({ ...feed, isFavorite: notify ? 1 : 0 });
     } catch (err) {
       if (ctrl.signal.aborted) {
-        activity.complete('Cancelled');
+        activity.complete(t('add.cancelled'));
         return;
       }
       if (err instanceof NotAFeedError) {
-        activity.complete('Not a feed, looking for feeds');
+        activity.complete(t('add.notFeedLooking'));
         onNotAFeed(target);
         return;
       }
       const described = describeError(err);
       activity.fail(described.title);
+      void playChime('error');
       setError(described);
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
@@ -132,7 +136,7 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor={urlId} className="text-sm font-medium text-silver">
-          Feed URL
+          {t('add.urlLabel')}
         </label>
         <Input
           id={urlId}
@@ -162,7 +166,7 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
 
       <div className="flex items-center justify-between gap-3">
         <span id={notifyId} className="text-sm text-silver">
-          Notify me about new articles (favorite feed)
+          {t('add.notify')}
         </span>
         <Switch checked={notify} onCheckedChange={setNotify} disabled={loading} aria-labelledby={notifyId} />
       </div>
@@ -174,12 +178,12 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
             <span className="font-semibold">{error.title}</span>
             {error.detail ? <span className="text-text">{error.detail}</span> : null}
             {error.routes && error.routes.length > 0 ? (
-              <p className="text-xs text-text-muted">Tried: {error.routes.join(', ')}</p>
+              <p className="text-xs text-text-muted">{t('add.tried', { routes: error.routes.join(', ') })}</p>
             ) : null}
           </div>
           {error.duplicateFeedId ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => showFeed(error.duplicateFeedId ?? '')}>
-              Show feed
+              {t('add.showFeed')}
             </Button>
           ) : null}
         </div>
@@ -187,7 +191,7 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
 
       <div className="flex justify-end">
         <Button type="submit" variant="primary" loading={loading}>
-          Add feed
+          {t('add.submit')}
         </Button>
       </div>
     </form>

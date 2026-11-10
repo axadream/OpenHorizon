@@ -1,4 +1,5 @@
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { activityPercent, useActivities, type Activity } from '@/store/activityStore';
 
@@ -49,7 +50,7 @@ function ActivityRow({ activity, reducedMotion }: ActivityRowProps) {
       </div>
       <p
         className={cn(
-          'glass mt-1.5 ml-3 inline-flex max-w-[calc(100%-24px)] items-center rounded-xs px-2 py-0.5 text-xs tabular-nums',
+          'glass mt-1.5 ms-3 inline-flex max-w-[calc(100%-24px)] items-center rounded-xs px-2 py-0.5 text-xs tabular-nums',
           failed ? 'text-danger' : 'text-text-muted',
         )}
       >
@@ -64,6 +65,7 @@ function ActivityRow({ activity, reducedMotion }: ActivityRowProps) {
  * so nothing here is interactive. The wrapper is always mounted so screen readers catch changes.
  */
 export function ActivityBar() {
+  useT();
   const activities = useActivities();
   const reducedMotion = usePrefersReducedMotion();
   const visible = activities.slice(0, MAX_VISIBLE);
@@ -73,12 +75,12 @@ export function ActivityBar() {
     <div
       role="status"
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-0 z-[var(--z-popover)] flex flex-col pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]"
+      className="pointer-events-none fixed inset-x-0 top-0 z-[var(--z-popover)] flex flex-col pt-[env(safe-area-inset-top)] pe-[env(safe-area-inset-right)] ps-[env(safe-area-inset-left)]"
     >
       {visible.map((a) => (
         <ActivityRow key={a.id} activity={a} reducedMotion={reducedMotion} />
       ))}
-      {hidden > 0 ? <p className="mt-1 ml-3 text-xs text-text-muted">{`+${hidden} more`}</p> : null}
+      {hidden > 0 ? <p className="mt-1 ms-3 text-xs text-text-muted">{t('activity.more', { count: hidden })}</p> : null}
     </div>
   );
 }

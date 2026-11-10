@@ -14,7 +14,7 @@ export interface ButtonProps extends ComponentPropsWithoutRef<'button'> {
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:
-    'bg-[image:var(--gradient-accent)] text-text-inverse font-semibold shadow-[var(--inner-highlight-strong)] hover:shadow-accent',
+    'bg-[image:var(--gradient-accent)] text-on-accent font-semibold shadow-[var(--inner-highlight-strong)] hover:shadow-accent',
   steel: 'steel text-text hover:brightness-110',
   ghost: 'bg-transparent text-silver hover:bg-card hover:text-text',
   danger: 'bg-danger-soft text-danger hover:bg-danger/20',

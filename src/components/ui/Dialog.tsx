@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n';
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -10,7 +11,7 @@ export interface DialogProps {
   /** Optional visible description, wired to aria-describedby. */
   description?: string;
   children?: ReactNode;
-  /** Footer content, right-aligned. */
+  /** Footer content, end-aligned. */
   footer?: ReactNode;
   /**
    * 'responsive' (default): centred panel, becomes a bottom sheet below md.
@@ -88,7 +89,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
           <h2 id={titleId} className="text-lg font-semibold tracking-[-0.01em] text-text">
             {title}
           </h2>
-          <IconButton label="Close" icon={X} size="sm" onClick={() => onOpenChange(false)} />
+          <IconButton label={t('dialog.close')} icon={X} size="sm" onClick={() => onOpenChange(false)} />
         </header>
         {description ? (
           <p id={descId} className="px-5 pt-4 text-sm text-text-muted">

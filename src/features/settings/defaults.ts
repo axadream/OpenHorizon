@@ -10,4 +10,6 @@ export const DEFAULT_SETTINGS: Settings = {
   installDismissedAt: null,
   appBadge: true,
   storagePersistAskedAt: null,
+  soundsEnabled: false,
+  soundVolume: 40,
 };

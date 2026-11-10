@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n';
 import { NotAFeedError } from '@/lib/parser/types';
 import { FetchAllFailedError, type FetchAttemptError } from './fetchWithProxy';
 
@@ -76,50 +77,50 @@ function diagnoseAttempts(attempts: FetchAttemptError[]): Diagnosis {
     (acc, c) => (acc === undefined || RANK[c.category] < RANK[acc.category] ? c : acc),
     undefined,
   );
-  const last = all.at(-1)?.error ?? 'no route answered';
+  const last = all.at(-1)?.error ?? t('diag.noRoute');
 
   switch (best?.category) {
     case 'not-found':
       return {
         kind: 'not-found',
-        title: 'Address not found',
-        detail: 'This address returned 404. Check the spelling of the URL.',
+        title: t('diag.notFoundTitle'),
+        detail: t('diag.notFoundDetail'),
       };
     case 'forbidden':
       return {
         kind: 'forbidden',
-        title: 'Access refused',
-        detail: `The site refused access (${best.status}). It may block automated readers.`,
+        title: t('diag.forbiddenTitle'),
+        detail: t('diag.forbiddenDetail', { status: best.status ?? '' }),
       };
     case 'server':
       return {
         kind: 'server',
-        title: 'The site has a server problem',
-        detail: `The site answered with a server error (${best.status}). Try again later.`,
+        title: t('diag.serverTitle'),
+        detail: t('diag.serverDetail', { status: best.status ?? '' }),
       };
     case 'timeout':
       return {
         kind: 'timeout',
-        title: 'The site is too slow',
-        detail: 'The site and every fallback route took too long to answer.',
+        title: t('diag.timeoutTitle'),
+        detail: t('diag.timeoutDetail'),
       };
     case 'blocked':
       return {
         kind: 'blocked',
-        title: "Couldn't reach this website",
-        detail: 'Your browser blocked the request (CORS) and the fallback routes were unreachable.',
+        title: t('diag.blockedTitle'),
+        detail: t('diag.blockedDetail'),
       };
     case 'other-http':
       return {
         kind: 'unknown',
-        title: "Couldn't fetch this address",
-        detail: `The site answered with HTTP ${best.status}. Last error: ${last}`,
+        title: t('diag.fetchTitle'),
+        detail: t('diag.otherHttpDetail', { status: best.status ?? '', error: last }),
       };
     default:
       return {
         kind: 'unknown',
-        title: "Couldn't fetch this address",
-        detail: `Last error: ${last}`,
+        title: t('diag.fetchTitle'),
+        detail: t('diag.lastError', { error: last }),
       };
   }
 }
@@ -128,14 +129,14 @@ function diagnoseParse(err: NotAFeedError): Diagnosis {
   if (NOT_A_FEED_RE.test(err.message)) {
     return {
       kind: 'not-a-feed',
-      title: 'This is not a feed',
-      detail: 'This page is not a feed. Try Discover to look for feeds on it.',
+      title: t('diag.notFeedTitle'),
+      detail: t('diag.notFeedDetail'),
     };
   }
   return {
     kind: 'invalid-xml',
-    title: 'The feed is malformed',
-    detail: `The XML is malformed: ${err.message.slice(0, 120)}`,
+    title: t('diag.malformedTitle'),
+    detail: t('diag.malformedDetail', { error: err.message.slice(0, 120) }),
   };
 }
 
@@ -145,14 +146,14 @@ function diagnoseParse(err: NotAFeedError): Diagnosis {
  */
 export function diagnoseFetchError(err: unknown, ctx: DiagnoseContext = {}): Diagnosis {
   if (ctx.online === false) {
-    return { kind: 'offline', title: "You're offline", detail: 'Reconnect and try again.' };
+    return { kind: 'offline', title: t('diag.offlineTitle'), detail: t('diag.offlineDetail') };
   }
   if (err instanceof FetchAllFailedError) return diagnoseAttempts(err.attempts);
   if (err instanceof NotAFeedError) return diagnoseParse(err);
   const message = err instanceof Error ? err.message : '';
   return {
     kind: 'unknown',
-    title: message || 'Something went wrong.',
+    title: message || t('diag.genericTitle'),
     detail: '',
   };
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { FileCode, Globe, Link, Upload } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs';
+import { t, useT } from '@/i18n/i18n';
 import { useDialog } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import type { AddFeedTab, OpmlFilePayload } from '@/store/types';
@@ -26,24 +27,24 @@ function AddFeedBody({ initialUrl, initialTab, opmlFile }: AddFeedBodyProps) {
 
   const onNotAFeed = (url: string): void => {
     setDiscoverUrl(url);
-    setNotice("That address is a web page, not a feed. Looking for feeds on it…");
+    setNotice(t('add.notAFeed'));
     setTab('discover');
   };
 
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as AddFeedTab)} className="gap-4">
-      <TabList label="Add feed source">
+      <TabList label={t('add.sourceLabel')}>
         <Tab value="url" icon={Link}>
-          URL
+          {t('add.tabUrl')}
         </Tab>
         <Tab value="discover" icon={Globe}>
-          Discover
+          {t('add.tabDiscover')}
         </Tab>
         <Tab value="xml" icon={FileCode}>
-          Paste XML
+          {t('add.tabXml')}
         </Tab>
         <Tab value="opml" icon={Upload}>
-          Import OPML
+          {t('add.tabOpml')}
         </Tab>
       </TabList>
 
@@ -65,6 +66,7 @@ function AddFeedBody({ initialUrl, initialTab, opmlFile }: AddFeedBodyProps) {
 
 /** Add feed dialog. Open state and payload live in `dialogs.addFeed` (store/uiStore). */
 export function AddFeedDialog() {
+  useT();
   const payload = useDialog('addFeed');
   const open = payload !== false;
   // A new session per open: a fresh object from openDialog gives a fresh key.
@@ -76,7 +78,7 @@ export function AddFeedDialog() {
       onOpenChange={(next) => {
         if (!next) useUiStore.getState().closeDialog('addFeed');
       }}
-      title="Add feed"
+      title={t('add.title')}
     >
       {payload === false ? null : (
         <AddFeedBody

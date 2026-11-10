@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Themes: Metallic (the default), OLED black (true black surfaces), Sepia (warm light paper), High contrast (black and white, strong borders, a yellow focus ring) and System (follows the light scheme, and switches to High contrast when more contrast is requested). The browser's theme colour follows the theme.
+- Custom accent colour: pick any colour, type a #rrggbb value, or use one of eight presets. Hover, pressed, focus and soft tints are derived from it, and the text on top of it is black or white, whichever reads better (at least 4.5:1).
+- Fonts: Sans, Serif, Mono and Dyslexic (OpenDyslexic) for the whole interface. The reader's font switch offers the same four. The OpenDyslexic font files (SIL Open Font License) are bundled with the app and cached for offline use.
+- Layouts for the timeline: Comfortable (the look you had before), List (one line per article: title, feed and time), Cards (a larger thumbnail and a three-line summary) and Reading (the reader takes the full width and the article list opens as a slide-over from a toolbar button, closed with Esc). Density only changes the spacing between rows.
+- Sounds: short synthesized chimes for a sync that finds new articles, a quiet sync that finds nothing, bookmarks, deletes and errors. Off by default; Settings → Sound has a switch, a volume slider and a preview for each chime. Chimes stay silent while the app is in the background.
+- Languages: English, Romanian and Arabic, chosen in Settings → Appearance (Automatic follows your browser). Dates, times and plurals follow the language. Arabic and right-to-left layout: navigation, swipe actions, arrow keys and the sheet all follow the writing direction, and article text is shown in its own direction.
 - Activity bar: a slim progress strip at the top of the screen shows feed imports, feed additions and syncs, with counts and percentages.
 - The version number in Settings links to the project on GitHub, and a "What's new" button opens these release notes.
 - Installed app integration: a share target (share a link from another app to add a feed), app shortcuts for Add feed, Unread and Favorites, an OPML file handler, and a `web+rss:` protocol handler. The manifest also declares an app id, categories, language and text direction.

@@ -4,6 +4,7 @@ import { FeedAvatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { Tooltip } from '@/components/ui/Tooltip';
 import type { Feed } from '@/db/schema';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { InlineRename, NavRowBadge, NavRowButton } from '@/components/nav/NavRow';
 
@@ -38,13 +39,14 @@ export function FeedRow({
   onRenameCommit,
   onRenameCancel,
 }: FeedRowProps) {
+  useT();
   const hasError = !!feed.lastError;
-  const label = `${feed.title}, ${unreadCount} unread${hasError ? ', feed has an error' : ''}`;
+  const label = t('nav.feedLabel', { title: feed.title, count: unreadCount }) + (hasError ? t('nav.feedError') : '');
 
   if (renaming) {
     return (
-      <li className="px-2" style={{ paddingLeft: 8 + depth * 12 }}>
-        <InlineRename label="Feed name" initial={feed.title} onCommit={onRenameCommit} onCancel={onRenameCancel} />
+      <li className="px-2" style={{ paddingInlineStart: 8 + depth * 12 }}>
+        <InlineRename label={t('nav.feedName')} initial={feed.title} onCommit={onRenameCommit} onCancel={onRenameCancel} />
       </li>
     );
   }
@@ -55,7 +57,7 @@ export function FeedRow({
     <span className="relative inline-flex shrink-0">
       <FeedAvatar title={feed.title} src={feed.faviconUrl} size={18} />
       {feed.isFavorite === 1 ? (
-        <Star aria-hidden="true" size={10} strokeWidth={1.75} className="absolute -top-1 -right-1 fill-accent text-accent" />
+        <Star aria-hidden="true" size={10} strokeWidth={1.75} className="absolute -top-1 -end-1 fill-accent text-accent" />
       ) : null}
     </span>
   );
@@ -97,12 +99,12 @@ export function FeedRow({
       {rail ? <Tooltip content={feed.title}>{button}</Tooltip> : button}
       {rail ? null : (
         <IconButton
-          label={`More actions for ${feed.title}`}
+          label={t('nav.moreFeed', { title: feed.title })}
           icon={MoreHorizontal}
           size="sm"
           tabIndex={-1}
           aria-haspopup="menu"
-          className="ml-0.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
+          className="ms-0.5 opacity-100 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100"
           onClick={(e) => onContextMenu(e, feed)}
         />
       )}

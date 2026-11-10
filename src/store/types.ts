@@ -101,6 +101,8 @@ export interface UIState extends PersistedUiState {
   selectedArticleId: string | null;
   mobilePane: MobilePane;
   readerFullscreen: boolean;
+  /** Reading layout only: the timeline is open as a slide-over over the reader (transient). */
+  timelineOverlay: boolean;
   // timeline
   timelineLimit: number;
   searchQuery: string;
@@ -121,6 +123,8 @@ export interface UIState extends PersistedUiState {
   setMobilePane(p: MobilePane): void;
   toggleNavCollapsed(): void;
   setReaderFullscreen(on: boolean): void;
+  setTimelineOverlay(open: boolean): void;
+  toggleTimelineOverlay(): void;
   setTimelineFilter(f: TimelineFilter): void;
   setTimelineSort(s: TimelineSort): void;
   loadMore(): void;

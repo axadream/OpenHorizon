@@ -13,6 +13,7 @@ export const useView = (): View => useUiStore((s) => s.view);
 export const useMobilePane = (): MobilePane => useUiStore((s) => s.mobilePane);
 export const useNavCollapsed = (): boolean => useUiStore((s) => s.navCollapsed);
 export const useReaderFullscreen = (): boolean => useUiStore((s) => s.readerFullscreen);
+export const useTimelineOverlay = (): boolean => useUiStore((s) => s.timelineOverlay);
 export const useTimelineFilter = (): TimelineFilter => useUiStore((s) => s.timelineFilter);
 export const useTimelineSort = (): TimelineSort => useUiStore((s) => s.timelineSort);
 export const useTimelineLimit = (): number => useUiStore((s) => s.timelineLimit);

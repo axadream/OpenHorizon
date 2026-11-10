@@ -10,6 +10,8 @@ import { AppDialogs } from '@/components/dialogs/AppDialogs';
 import { ShareSheet } from '@/components/sharing/ShareSheet';
 import { ToastRegion } from '@/components/ui/Toast';
 import { db } from '@/db/db';
+import { useAppearanceSync } from '@/features/appearance/useAppearanceSync';
+import { useAppearanceStore } from '@/features/appearance/appearanceStore';
 import { OPEN_ARTICLE_EVENT } from '@/features/sync/protocol';
 import { useSyncScheduler } from '@/features/sync/scheduler';
 import { useServiceWorkerBridge } from '@/features/sync/swBridge';
@@ -21,9 +23,10 @@ import { useLaunchParams } from '@/hooks/useLaunchParams';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMobileHistory } from '@/hooks/useMobileHistory';
 import { useStoragePersistence } from '@/features/system/storage';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
-import { useMobilePane, useReaderFullscreen } from '@/store/selectors';
+import { useMobilePane, useReaderFullscreen, useTimelineOverlay } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import type { MobilePane } from '@/store/types';
 
@@ -39,10 +42,11 @@ function paneState(pane: MobilePane, active: MobilePane): PaneState {
   return i < a ? 'left' : 'right';
 }
 
+/* Earlier panes leave towards the start edge, later ones enter from the end edge (mirrored in RTL). */
 const PANE_STATE_CLASS: Record<PaneState, string> = {
   active: 'z-[var(--z-pane)] translate-x-0 opacity-100 visible pointer-events-auto',
-  left: '-translate-x-[30%] opacity-0 invisible pointer-events-none',
-  right: 'translate-x-full opacity-0 invisible pointer-events-none',
+  left: '-translate-x-[30%] rtl:translate-x-[30%] opacity-0 invisible pointer-events-none',
+  right: 'translate-x-full rtl:-translate-x-full opacity-0 invisible pointer-events-none',
 };
 
 /** Mobile-only absolute stacking classes for a pane; desktop panes lay out in the grid instead. */
@@ -55,12 +59,26 @@ function mobilePaneClass(state: PaneState, fullscreen: boolean): string {
   );
 }
 
+/** Reading layout: the timeline is a slide-over on the start edge of the reader. */
+function readingOverlayClass(open: boolean): string {
+  return cn(
+    'absolute inset-y-0 start-[var(--nav-w-collapsed)] z-[var(--z-pane)] w-[min(var(--timeline-w),calc(100%-var(--nav-w-collapsed)))] shadow-[var(--shadow-3)]',
+    'transition-[transform,opacity,visibility] duration-[var(--duration-slow)] ease-standard motion-reduce:transition-none',
+    open
+      ? 'translate-x-0 opacity-100 visible pointer-events-auto'
+      : 'ltr:-translate-x-full rtl:translate-x-full opacity-0 invisible pointer-events-none',
+  );
+}
+
 /**
  * Root layout. Desktop and tablet: a 3-column grid (nav 260 px or 64 px rail, timeline 380/340/420 px,
  * reader 1fr). Mobile: a single-pane stack driven by `mobilePane`. Reader fullscreen collapses the
- * nav and timeline columns and makes them inert. `main` uses display: contents so the grid still applies.
+ * nav and timeline columns and makes them inert. The reading layout keeps the rail, drops the timeline
+ * column and shows the timeline as a slide-over. `main` uses display: contents so the grid still applies.
  */
 export function AppShell() {
+  useT(); // re-render the shell when the language changes
+  useAppearanceSync();
   useSyncScheduler();
   useServiceWorkerBridge();
   useBootUrl();
@@ -78,9 +96,9 @@ export function AppShell() {
       db.articles.get(articleId).then(
         (article) => {
           if (article) useUiStore.getState().selectArticle(article.id, { openOnMobile: true });
-          else toast.error('That article is no longer available');
+          else toast.error(t('article.noLonger'));
         },
-        () => toast.error('Could not open that article'),
+        () => toast.error(t('article.openFailed')),
       );
     };
     window.addEventListener(OPEN_ARTICLE_EVENT, onOpenArticle);
@@ -93,20 +111,35 @@ export function AppShell() {
   const rail = useNavRail();
   const fullscreen = useReaderFullscreen();
   const mobilePane = useMobilePane();
+  const layoutMode = useAppearanceStore((s) => s.layoutMode);
+  const overlayOpen = useTimelineOverlay();
 
+  const reading = !isMobile && layoutMode === 'reading' && !fullscreen;
   const navState: PaneState = isMobile ? paneState('nav', mobilePane) : 'active';
   const timelineState: PaneState = isMobile ? paneState('timeline', mobilePane) : 'active';
   const readerState: PaneState = isMobile ? paneState('reader', mobilePane) : 'active';
 
+  // The slide-over takes focus when it opens, so the arrow keys work straight away.
+  useEffect(() => {
+    if (!reading || !overlayOpen) return;
+    const frame = window.setTimeout(() => document.getElementById('timeline-listbox')?.focus(), 0);
+    return () => window.clearTimeout(frame);
+  }, [reading, overlayOpen]);
+
   const navWidth = fullscreen ? 0 : rail ? 64 : 260;
-  const timelineWidth = fullscreen ? 0 : tablet ? 340 : wide ? 420 : 380;
+  const timelineWidth = fullscreen || reading ? 0 : tablet ? 340 : wide ? 420 : 380;
   const gridStyle: CSSProperties | undefined = isMobile
     ? undefined
     : { gridTemplateColumns: `${navWidth}px ${timelineWidth}px minmax(0,1fr)` };
 
   const navInert = (isMobile && navState !== 'active') || fullscreen;
-  const timelineInert = (isMobile && timelineState !== 'active') || fullscreen;
+  const timelineHidden = fullscreen || (reading && !overlayOpen);
+  const timelineInert = (isMobile && timelineState !== 'active') || timelineHidden;
   const readerInert = isMobile && readerState !== 'active';
+
+  let timelineClass: string | undefined;
+  if (isMobile) timelineClass = mobilePaneClass(timelineState, fullscreen);
+  else if (reading) timelineClass = readingOverlayClass(overlayOpen);
 
   return (
     <>
@@ -126,8 +159,9 @@ export function AppShell() {
         />
         <main id="main" className="contents">
           <TimelinePane
-            className={isMobile ? mobilePaneClass(timelineState, fullscreen) : undefined}
+            className={timelineClass}
             data-state={timelineState}
+            data-layout={reading ? 'overlay' : undefined}
             inert={timelineInert || undefined}
           />
           <ReaderPane

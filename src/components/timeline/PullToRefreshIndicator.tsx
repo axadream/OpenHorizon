@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { t } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 
 /** Pull distance that arms the refresh (DESIGN motion: pull follows the finger). */
@@ -28,7 +29,7 @@ export function PullToRefreshIndicator({ scrollRef, onRefresh, className }: Pull
   const visible = refreshing || distance > 0;
   const progress = Math.min(1, distance / PULL_THRESHOLD_PX);
   const top = refreshing ? SETTLED_TOP : Math.min(HIDDEN_TOP + distance, SETTLED_TOP);
-  const label = refreshing ? 'Refreshing' : armed ? 'Release to refresh' : 'Pull to refresh';
+  const label = refreshing ? t('pull.refreshing') : armed ? t('pull.release') : t('pull.pull');
 
   return (
     <div
@@ -38,7 +39,7 @@ export function PullToRefreshIndicator({ scrollRef, onRefresh, className }: Pull
       )}
     >
       <span role="status" aria-live="polite" className="sr-only">
-        {refreshing ? 'Refreshing feeds' : ''}
+        {refreshing ? t('pull.refreshingFeeds') : ''}
       </span>
       <div
         aria-hidden={!visible || undefined}

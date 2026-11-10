@@ -1,12 +1,14 @@
 import { useRef, useState, type KeyboardEvent } from 'react';
-import { Bookmark, Circle, CircleCheck, ExternalLink, Maximize2, Minimize2, Share2, Star, Type, ArrowLeft } from 'lucide-react';
+import { Bookmark, Circle, CircleCheck, ExternalLink, List, Maximize2, Minimize2, Share2, Star, Type, ArrowLeft } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { ReaderPrefsPopover } from '@/components/reader/ReaderPrefsPopover';
 import { markRead, markUnread, setFavorite, setReadLater } from '@/features/articles/articleActions';
 import type { Article, Feed } from '@/db/schema';
 import { share } from '@/features/sharing/share';
+import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { timeAgo } from '@/lib/time';
+import { useTimelineOverlay } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 
 export interface ReaderToolbarProps {
@@ -14,6 +16,8 @@ export interface ReaderToolbarProps {
   feed: Feed | undefined;
   isMobile: boolean;
   fullscreen: boolean;
+  /** Reading layout: the toolbar shows the button that opens the timeline slide-over. */
+  readingLayout: boolean;
   /** True once the reader body has scrolled; switches the steel bar to glass. */
   scrolled: boolean;
   showImages: boolean;
@@ -23,13 +27,15 @@ export interface ReaderToolbarProps {
 const LINK_CLASS =
   'focus-ring inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm text-text-muted transition-[background-color,color] duration-[var(--duration-instant)] ease-standard hover:bg-card hover:text-text';
 
-/** Left/Right arrows move between toolbar controls (WAI-ARIA toolbar pattern). */
+/** Arrow keys move between toolbar controls (WAI-ARIA toolbar pattern). Inverted in RTL. */
 function onToolbarKey(e: KeyboardEvent<HTMLDivElement>): void {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]'));
   const index = items.indexOf(document.activeElement as HTMLElement);
   if (index === -1) return;
-  const step = e.key === 'ArrowRight' ? 1 : -1;
+  const rtl = document.documentElement.dir === 'rtl';
+  const forward = (e.key === 'ArrowRight') !== rtl;
+  const step = forward ? 1 : -1;
   e.preventDefault();
   items[(index + step + items.length) % items.length]?.focus();
 }
@@ -40,10 +46,13 @@ export function ReaderToolbar({
   feed,
   isMobile,
   fullscreen,
+  readingLayout,
   scrolled,
   showImages,
   onShowImagesChange,
 }: ReaderToolbarProps) {
+  useT();
+  const overlayOpen = useTimelineOverlay();
   const [prefsOpen, setPrefsOpen] = useState(false);
   const prefsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -55,7 +64,7 @@ export function ReaderToolbar({
   return (
     <div
       role="toolbar"
-      aria-label="Article actions"
+      aria-label={t('reader.toolbar')}
       onKeyDown={onToolbarKey}
       className={cn(
         'flex h-[var(--toolbar-h)] shrink-0 items-center gap-1 border-b border-border px-2',
@@ -65,10 +74,22 @@ export function ReaderToolbar({
     >
       {isMobile ? (
         <IconButton
-          label="Back to timeline"
+          label={t('reader.back')}
           icon={ArrowLeft}
           size="sm"
+          className="rtl:-scale-x-100"
           onClick={() => useUiStore.getState().setMobilePane('timeline')}
+        />
+      ) : null}
+
+      {readingLayout && !isMobile && !fullscreen ? (
+        <IconButton
+          label={overlayOpen ? t('timeline.hideList') : t('timeline.showList')}
+          icon={List}
+          size="sm"
+          pressed={overlayOpen}
+          aria-expanded={overlayOpen}
+          onClick={() => useUiStore.getState().toggleTimelineOverlay()}
         />
       ) : null}
 
@@ -78,24 +99,24 @@ export function ReaderToolbar({
         <time dateTime={new Date(article.publishedAt).toISOString()}>{timeAgo(article.publishedAt)}</time>
       </p>
 
-      <div className="ml-auto flex items-center gap-0.5">
+      <div className="ms-auto flex items-center gap-0.5">
         {article.link ? (
           <a
             href={article.link}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Open original"
-            title="Open original"
+            aria-label={t('reader.openOriginal')}
+            title={t('reader.openOriginal')}
             className={LINK_CLASS}
           >
             <ExternalLink aria-hidden="true" size={16} strokeWidth={1.75} />
           </a>
         ) : (
-          <IconButton label="Open original" icon={ExternalLink} size="sm" disabled />
+          <IconButton label={t('reader.openOriginal')} icon={ExternalLink} size="sm" disabled />
         )}
 
         <IconButton
-          label="Favorite"
+          label={t('reader.favorite')}
           icon={Star}
           size="sm"
           pressed={isFavorite}
@@ -104,7 +125,7 @@ export function ReaderToolbar({
           onClick={() => void setFavorite(article.id, !isFavorite)}
         />
         <IconButton
-          label="Read later"
+          label={t('reader.readLater')}
           icon={Bookmark}
           size="sm"
           pressed={isLater}
@@ -113,13 +134,13 @@ export function ReaderToolbar({
           onClick={() => void setReadLater(article.id, !isLater)}
         />
         <IconButton
-          label={isRead ? 'Mark as unread' : 'Mark as read'}
+          label={isRead ? t('article.markUnread') : t('article.markRead')}
           icon={isRead ? Circle : CircleCheck}
           size="sm"
           onClick={() => void (isRead ? markUnread(article.id) : markRead(article.id))}
         />
         <IconButton
-          label="Share"
+          label={t('reader.share')}
           icon={Share2}
           size="sm"
           disabled={!shareUrl}
@@ -127,7 +148,7 @@ export function ReaderToolbar({
         />
         <IconButton
           ref={prefsButtonRef}
-          label="Reading preferences"
+          label={t('reader.prefs')}
           icon={Type}
           size="sm"
           aria-haspopup="dialog"
@@ -136,7 +157,7 @@ export function ReaderToolbar({
           onClick={() => setPrefsOpen((o) => !o)}
         />
         <IconButton
-          label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+          label={fullscreen ? t('reader.exitFullscreen') : t('reader.enterFullscreen')}
           icon={fullscreen ? Minimize2 : Maximize2}
           size="sm"
           className="hidden md:inline-flex"

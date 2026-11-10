@@ -10,6 +10,7 @@ import { deleteArticleWithUndo } from '@/features/articles/articleCommands';
 import { queryUnreadIds } from '@/features/articles/articleQueries';
 import { share } from '@/features/sharing/share';
 import { runSyncFromPage } from '@/features/sync/scheduler';
+import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { getTimelineIds, selectIsDialogOpen } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
@@ -26,7 +27,7 @@ export const KEYMAP: readonly KeymapEntry[] = [
   { keys: ['K', '↑'], label: 'Previous article' },
   { keys: ['Home', 'End'], label: 'First / last article (timeline list)' },
   { keys: ['Enter', 'O'], label: 'Open selected article (mobile: reader)' },
-  { keys: ['←', '→'], label: 'Move focus between panes' },
+  { keys: ['←', '→'], label: 'Move focus between panes (mirrored in Arabic)' },
   { keys: ['M'], label: 'Toggle read' },
   { keys: ['L'], label: 'Toggle read later' },
   { keys: ['F'], label: 'Toggle favorite' },
@@ -43,7 +44,7 @@ export const KEYMAP: readonly KeymapEntry[] = [
   { keys: ['1', '2', '3', '4'], label: 'Smart views: All, Unread, Favorites, Read Later' },
   { keys: [','], label: 'Settings' },
   { keys: ['?'], label: 'Keyboard shortcuts' },
-  { keys: ['Esc'], label: 'Close, exit fullscreen, go back a pane, clear search' },
+  { keys: ['Esc'], label: 'Close, exit fullscreen, hide the article list, go back a pane, clear search' },
 ];
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
@@ -56,6 +57,11 @@ const EDITABLE = 'input, textarea, select, [contenteditable]:not([contenteditabl
 
 function isMobileViewport(): boolean {
   return window.matchMedia(MOBILE_QUERY).matches;
+}
+
+/** Writing direction of the document (set from the active locale). Arrow keys swap in RTL. */
+function isRtl(): boolean {
+  return document.documentElement.dir === 'rtl';
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -94,7 +100,7 @@ async function shareSelected(): Promise<void> {
   const feed = await db.feeds.get(article.feedId);
   const url = article.link || feed?.siteUrl || '';
   if (!url) {
-    toast.info('This article has no link to share');
+    toast.info(t('keys.noLink'));
     return;
   }
   await share({ title: article.title, url, text: article.title });
@@ -110,12 +116,12 @@ async function openOriginalSelected(): Promise<void> {
 async function markAllReadInView(view: View): Promise<void> {
   const ids = await queryUnreadIds(view);
   if (ids.length === 0) {
-    toast.info('Nothing unread in this view');
+    toast.info(t('keys.nothingUnread'));
     return;
   }
-  if (ids.length > 20 && !window.confirm(`Mark ${ids.length} articles as read?`)) return;
+  if (ids.length > 20 && !window.confirm(t('plural.confirmMark', { count: ids.length }))) return;
   const changed = await markAllRead(view);
-  toast.success(`Marked ${changed.length} ${changed.length === 1 ? 'article' : 'articles'} as read`);
+  toast.success(t('plural.marked', { count: changed.length }));
 }
 
 /** Focus the nav search field, opening it first when it is closed (retries while the pane mounts). */
@@ -127,7 +133,7 @@ function focusSearch(): void {
     existing.focus();
     return;
   }
-  document.querySelector<HTMLElement>('#nav-pane button[aria-label="Search feeds"]')?.click();
+  document.querySelector<HTMLElement>('#nav-pane [data-search-toggle]')?.click();
   let tries = 0;
   const attempt = () => {
     const input = document.getElementById('nav-search');
@@ -139,11 +145,12 @@ function focusSearch(): void {
 
 type Pane = 'nav' | 'timeline' | 'reader';
 
+/* Panes are found by data-pane (stable across languages), never by their translated labels. */
 function paneOf(el: Element | null): Pane | null {
   if (!el) return null;
   if (el.closest('#nav-pane')) return 'nav';
-  if (el.closest('section[aria-label="Timeline"]')) return 'timeline';
-  if (el.closest('section[aria-label="Reader"]')) return 'reader';
+  if (el.closest('[data-pane="timeline"]')) return 'timeline';
+  if (el.closest('[data-pane="reader"]')) return 'reader';
   return null;
 }
 
@@ -152,8 +159,8 @@ function focusPane(pane: Pane): void {
   // Candidates in priority order: the roving item or listbox first, then any control in the pane.
   const candidates: Record<Pane, string[]> = {
     nav: ['#nav-pane [data-nav-item][tabindex="0"]', '#nav-pane [data-nav-item]'],
-    timeline: ['#timeline-listbox', 'section[aria-label="Timeline"] button:not([disabled])'],
-    reader: ['#reader-article', 'section[aria-label="Reader"] button:not([disabled])'],
+    timeline: ['#timeline-listbox', '[data-pane="timeline"] button:not([disabled])'],
+    reader: ['#reader-article', '[data-pane="reader"] button:not([disabled])'],
   };
   for (const selector of candidates[pane]) {
     const el = document.querySelector<HTMLElement>(selector);
@@ -164,7 +171,7 @@ function focusPane(pane: Pane): void {
   }
 }
 
-/** Esc chain (DESIGN 8.4): dialog, fullscreen, mobile back one pane, clear search. One step per press. */
+/** Esc chain (DESIGN 8.4): dialog, fullscreen, reading slide-over, mobile back one pane, clear search. One step per press. */
 function escapeChain(e: KeyboardEvent): void {
   const s = useUiStore.getState();
   const dialogOpen = document.querySelector('dialog[open]') !== null || DIALOG_NAMES.some((n) => selectIsDialogOpen(s, n));
@@ -176,6 +183,11 @@ function escapeChain(e: KeyboardEvent): void {
   if (s.readerFullscreen) {
     e.preventDefault();
     s.setReaderFullscreen(false);
+    return;
+  }
+  if (s.timelineOverlay) {
+    e.preventDefault();
+    s.setTimelineOverlay(false);
     return;
   }
   if (isMobileViewport()) {
@@ -192,7 +204,7 @@ function escapeChain(e: KeyboardEvent): void {
   }
 }
 
-/** Arrow keys between panes: desktop/tablet moves focus; mobile steps the pane stack back on ←. */
+/** Arrow keys between panes: desktop/tablet moves focus; mobile steps the pane stack back. Direction is the logical one. */
 function arrowPane(direction: 1 | -1): boolean {
   if (isMobileViewport()) {
     if (direction === -1) {
@@ -254,20 +266,21 @@ function onKeyDown(e: KeyboardEvent): void {
       if (id && isMobileViewport()) s.selectArticle(id, { openOnMobile: true });
       break;
     }
+    // Logical direction: in LTR ArrowLeft goes back a pane; in RTL the panes run the other way, so it swaps.
     case 'ArrowLeft':
-      arrowPane(-1);
+      arrowPane(isRtl() ? 1 : -1);
       break;
     case 'ArrowRight':
-      if (!arrowPane(1)) handled = false;
+      if (!arrowPane(isRtl() ? -1 : 1)) handled = false;
       break;
     case 'm': {
       const id = selectedId();
-      if (id) toggleRead(id).catch(reportError('Could not update read state'));
+      if (id) toggleRead(id).catch(reportError(t('article.couldNotReadState')));
       break;
     }
     case 'l': {
       const id = selectedId();
-      if (id) toggleReadLater(id).catch(reportError('Could not update read later'));
+      if (id) toggleReadLater(id).catch(reportError(t('article.couldNotLater')));
       break;
     }
     case 'f': {
@@ -277,31 +290,31 @@ function onKeyDown(e: KeyboardEvent): void {
         break;
       }
       const id = selectedId();
-      if (id) toggleFavorite(id).catch(reportError('Could not update favorite'));
+      if (id) toggleFavorite(id).catch(reportError(t('article.couldNotFavorite')));
       break;
     }
     case 'Delete': {
       const id = selectedId();
-      if (id) deleteArticleWithUndo(id).catch(reportError('Could not delete the article'));
+      if (id) deleteArticleWithUndo(id).catch(reportError(t('article.couldNotDelete')));
       break;
     }
     case 's':
-      shareSelected().catch(reportError('Could not share the article'));
+      shareSelected().catch(reportError(t('article.couldNotShare')));
       break;
     case 'v':
-      openOriginalSelected().catch(reportError('Could not open the original'));
+      openOriginalSelected().catch(reportError(t('article.couldNotOpen')));
       break;
     case 'r': {
       const view = s.view;
       if (e.shiftKey && view.type === 'feed') {
-        runSyncFromPage({ manual: true, feedIds: [view.feedId] }).catch(reportError('Sync failed'));
+        runSyncFromPage({ manual: true, feedIds: [view.feedId] }).catch(reportError(t('timeline.syncFailed')));
       } else {
-        runSyncFromPage({ manual: true }).catch(reportError('Sync failed'));
+        runSyncFromPage({ manual: true }).catch(reportError(t('timeline.syncFailed')));
       }
       break;
     }
     case 'a':
-      if (e.shiftKey) markAllReadInView(s.view).catch(reportError('Could not mark articles as read'));
+      if (e.shiftKey) markAllReadInView(s.view).catch(reportError(t('timeline.couldNotMark')));
       else s.openDialog('addFeed');
       break;
     case '/':

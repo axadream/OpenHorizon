@@ -8,6 +8,7 @@ import { FeedRowSkeleton } from '@/components/ui/Skeleton';
 import { db } from '@/db/db';
 import type { Feed, Folder } from '@/db/schema';
 import { useCounts } from '@/features/articles/articleQueries';
+import { useAppearanceStore } from '@/features/appearance/appearanceStore';
 import { useFeeds, useFolders, useUnreadCounts } from '@/features/feeds/feedQueries';
 import { createFolder, moveFeedToFolder, renameFolder, setFolderCollapsed } from '@/features/feeds/folders';
 import { syncAll } from '@/features/sync/syncAll';
@@ -16,6 +17,7 @@ import { useLive } from '@/hooks/useLive';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useRovingFocus } from '@/hooks/useRovingFocus';
+import { t, useIsRtl, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
 import { useNavCollapsed, useSearchQuery, useSyncing, useSyncingFeedIds, useView } from '@/store/selectors';
@@ -30,12 +32,16 @@ import { FeedContextMenu, FolderContextMenu, renameFeed } from '@/components/nav
 /** Two-column layout range (tablet): nav is forced to the 64 px rail. */
 export const TABLET_QUERY = '(min-width: 768px) and (max-width: 1023.98px)';
 
-/** True when the nav renders as the 64 px rail: collapsed by the user, or forced on tablet. Never on mobile. */
+/**
+ * True when the nav renders as the 64 px rail: collapsed by the user, forced on tablet, or forced by
+ * the reading layout (the timeline is a slide-over there). Never on mobile.
+ */
 export function useNavRail(): boolean {
   const collapsed = useNavCollapsed();
   const mobile = useIsMobile();
   const tablet = useMediaQuery(TABLET_QUERY);
-  return !mobile && (collapsed || tablet);
+  const reading = useAppearanceStore((s) => s.layoutMode === 'reading');
+  return !mobile && (collapsed || tablet || reading);
 }
 
 type MenuTarget = { kind: 'feed'; feed: Feed } | { kind: 'folder'; folder: Folder };
@@ -56,17 +62,17 @@ function NewFolderForm({ feedId, onDone }: { feedId: string | null; onDone(): vo
     try {
       const folder = await createFolder(name);
       if (feedId) await moveFeedToFolder(feedId, folder.id);
-      toast.success(`Created folder ${folder.name}`);
+      toast.success(t('nav.createdFolder', { name: folder.name }));
     } catch (err: unknown) {
-      toast.error('Could not create the folder', { description: err instanceof Error ? err.message : undefined });
+      toast.error(t('nav.couldNotCreateFolder'), { description: err instanceof Error ? err.message : undefined });
     }
     onDone();
   };
   return (
     <form onSubmit={submit} className="px-2 pb-2">
       <Input
-        aria-label="New folder name"
-        placeholder="Folder name"
+        aria-label={t('nav.newFolderName')}
+        placeholder={t('nav.folderName')}
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -89,6 +95,8 @@ function NewFolderForm({ feedId, onDone }: { feedId: string | null; onDone(): vo
  * tree renders as icons with tooltips and accent dots.
  */
 export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>) {
+  useT();
+  const rtl = useIsRtl();
   const rail = useNavRail();
   const view = useView();
   const search = useSearchQuery();
@@ -159,8 +167,12 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
   const closeSearch = () => toggleSearch();
 
   const refreshAll = () => {
-    syncAll().catch((err: unknown) => toast.error('Sync failed', { description: err instanceof Error ? err.message : undefined }));
+    syncAll().catch((err: unknown) => toast.error(t('nav.syncFailed'), { description: err instanceof Error ? err.message : undefined }));
   };
+
+  // Tree keys: in RTL the folder chevron opens with ArrowLeft and closes with ArrowRight (mirrored).
+  const openKey = rtl ? 'ArrowLeft' : 'ArrowRight';
+  const closeKey = rtl ? 'ArrowRight' : 'ArrowLeft';
 
   const onNavKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const el = e.target as HTMLElement;
@@ -170,11 +182,11 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
     const items = Array.from(bodyRef.current?.querySelectorAll<HTMLElement>('[data-nav-item]') ?? []);
     const index = items.indexOf(el);
 
-    if (e.key === 'ArrowRight' && folder) {
+    if (e.key === openKey && folder) {
       e.preventDefault();
       if (folder.collapsed === 1) void setFolderCollapsed(folder.id, false);
       else items[index + 1]?.focus();
-    } else if (e.key === 'ArrowLeft') {
+    } else if (e.key === closeKey) {
       if (folder && folder.collapsed !== 1) {
         e.preventDefault();
         void setFolderCollapsed(folder.id, true);
@@ -204,7 +216,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
       onRenameCommit={(title) => {
         setRenamingFeedId(null);
         renameFeed(feed.id, title).catch((err: unknown) =>
-          toast.error('Could not rename the feed', { description: err instanceof Error ? err.message : undefined }),
+          toast.error(t('nav.couldNotRename'), { description: err instanceof Error ? err.message : undefined }),
         );
       }}
       onRenameCancel={() => setRenamingFeedId(null)}
@@ -216,17 +228,23 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
   return (
     <nav
       id="nav-pane"
-      aria-label="Feeds"
-      className={cn('flex min-h-0 flex-col overflow-hidden border-r border-border bg-panel', className)}
+      aria-label={t('nav.label')}
+      className={cn('flex min-h-0 flex-col overflow-hidden border-e border-border bg-panel', className)}
       {...rest}
     >
       <header className="steel hairline-b flex h-[var(--toolbar-h)] shrink-0 items-center gap-2 px-3">
         <Rss aria-hidden="true" size={20} strokeWidth={1.75} className="shrink-0 text-accent" />
         {rail ? null : (
-          <p className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.01em] text-text">OpenHorizon</p>
+          <p className="min-w-0 flex-1 truncate text-lg font-semibold tracking-[-0.01em] text-text">{t('nav.title')}</p>
         )}
         {rail ? null : (
-          <IconButton label="Search feeds" icon={Search} pressed={searchOpen} onClick={toggleSearch} />
+          <IconButton
+            data-search-toggle
+            label={t('nav.searchFeeds')}
+            icon={Search}
+            pressed={searchOpen}
+            onClick={toggleSearch}
+          />
         )}
       </header>
 
@@ -245,12 +263,12 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
               rail && 'sr-only',
             )}
           >
-            Smart views
+            {t('nav.smartViews')}
           </h2>
           <ul role="list" className="flex flex-col gap-0.5">
             <NavRow
               icon={Inbox}
-              label="All"
+              label={t('common.all')}
               count={counts.unread}
               selected={view.type === 'all'}
               rail={rail}
@@ -258,7 +276,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
             />
             <NavRow
               icon={CircleDot}
-              label="Unread"
+              label={t('common.unreadView')}
               count={counts.unread}
               selected={view.type === 'unread'}
               rail={rail}
@@ -266,7 +284,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
             />
             <NavRow
               icon={Star}
-              label="Favorites"
+              label={t('common.favorites')}
               count={favoriteUnread}
               selected={view.type === 'favorites'}
               rail={rail}
@@ -274,7 +292,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
             />
             <NavRow
               icon={Bookmark}
-              label="Read Later"
+              label={t('common.readLater')}
               count={counts.readLater}
               selected={view.type === 'readLater'}
               rail={rail}
@@ -284,7 +302,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
         </section>
 
         <section aria-labelledby="nav-folders" className="mt-4">
-          <div className={cn('flex items-center justify-between pr-1', rail && 'justify-center')}>
+          <div className={cn('flex items-center justify-between pe-1', rail && 'justify-center')}>
             <h2
               id="nav-folders"
               className={cn(
@@ -292,11 +310,11 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
                 rail && 'sr-only',
               )}
             >
-              {matches ? 'Matching feeds' : 'Folders'}
+              {matches ? t('nav.matchingFeeds') : t('nav.folders')}
             </h2>
             {rail || matches ? null : (
               <IconButton
-                label="New folder"
+                label={t('nav.newFolder')}
                 icon={FolderPlus}
                 size="sm"
                 onClick={() => setNewFolder({ feedId: null })}
@@ -317,16 +335,16 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
           ) : null}
 
           {feeds !== undefined && folders !== undefined && feeds.length === 0 && folders.length === 0 ? (
-            <p className={cn('px-2 py-2 text-sm text-text-muted', rail && 'sr-only')}>
-              No feeds yet. Add one to get started.
-            </p>
+            <p className={cn('px-2 py-2 text-sm text-text-muted', rail && 'sr-only')}>{t('nav.noFeeds')}</p>
           ) : null}
 
           {matches ? (
             matches.length === 0 ? (
-              <p className={cn('px-2 py-2 text-sm text-text-muted', rail && 'sr-only')}>No feeds match “{search.trim()}”.</p>
+              <p className={cn('px-2 py-2 text-sm text-text-muted', rail && 'sr-only')}>
+                {t('nav.noMatch', { query: search.trim() })}
+              </p>
             ) : (
-              <ul role="list" aria-label="Matching feeds" className="flex flex-col gap-0.5">
+              <ul role="list" aria-label={t('nav.matchingFeedsList')} className="flex flex-col gap-0.5">
                 {matches.map((feed) => renderFeed(feed, 0, feed.folderId))}
               </ul>
             )
@@ -353,14 +371,14 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
                         onRenameCommit={(name) => {
                           setRenamingFolderId(null);
                           renameFolder(folder.id, name).catch((err: unknown) =>
-                            toast.error('Could not rename the folder', { description: err instanceof Error ? err.message : undefined }),
+                            toast.error(t('nav.couldNotRenameFolder'), { description: err instanceof Error ? err.message : undefined }),
                           );
                         }}
                         onRenameCancel={() => setRenamingFolderId(null)}
                       />
                       {expanded && kids.length > 0 ? (
                         <li role="none">
-                          <ul id={childrenId} role="group" aria-label={`${folder.name} feeds`} className="flex flex-col gap-0.5">
+                          <ul id={childrenId} role="group" aria-label={t('nav.folderFeeds', { name: folder.name })} className="flex flex-col gap-0.5">
                             {kids.map((feed) => renderFeed(feed, 1, folder.id))}
                           </ul>
                         </li>
@@ -374,10 +392,10 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
                 <>
                   {(folders ?? []).length > 0 && !rail ? (
                     <h3 className="px-2 pt-3 pb-1.5 text-xs font-semibold tracking-[0.08em] text-text-faint uppercase">
-                      Unfiled
+                      {t('nav.unfiled')}
                     </h3>
                   ) : null}
-                  <ul role="list" aria-label="Unfiled feeds" className="flex flex-col gap-0.5">
+                  <ul role="list" aria-label={t('nav.unfiledList')} className="flex flex-col gap-0.5">
                     {grouped.unfiled.map((feed) => renderFeed(feed, 0, null))}
                   </ul>
                 </>
@@ -393,17 +411,17 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
           rail ? 'flex-col' : 'justify-between',
         )}
       >
-        <IconButton label="Settings" icon={Settings} onClick={() => useUiStore.getState().openDialog('settings')} />
+        <IconButton label={t('nav.settings')} icon={Settings} onClick={() => useUiStore.getState().openDialog('settings')} />
         {rail ? (
-          <IconButton label="Add feed" icon={Plus} onClick={() => useUiStore.getState().openDialog('addFeed')} />
+          <IconButton label={t('nav.addFeed')} icon={Plus} onClick={() => useUiStore.getState().openDialog('addFeed')} />
         ) : (
           <Button variant="primary" size="sm" leadingIcon={Plus} onClick={() => useUiStore.getState().openDialog('addFeed')}>
-            Add feed
+            {t('nav.addFeed')}
           </Button>
         )}
         <span className={cn('inline-flex', syncing && '[&_svg]:animate-spin-slow')}>
           <IconButton
-            label="Refresh all feeds"
+            label={t('nav.refreshAll')}
             icon={RefreshCw}
             disabled={syncing}
             aria-busy={syncing || undefined}
@@ -411,13 +429,13 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
           />
         </span>
         {online ? null : (
-          <span role="status" aria-label="Offline" title="Offline" className="inline-flex items-center gap-1 text-xs text-warning">
+          <span role="status" aria-label={t('nav.offlineLabel')} title={t('nav.offlineLabel')} className="inline-flex items-center gap-1 text-xs text-warning">
             <WifiOff aria-hidden="true" size={14} strokeWidth={1.75} />
-            {rail ? null : <span>Offline</span>}
+            {rail ? null : <span>{t('nav.offline')}</span>}
           </span>
         )}
         <IconButton
-          label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
+          label={rail ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
           icon={rail ? PanelLeftOpen : PanelLeftClose}
           className="hidden lg:inline-flex"
           onClick={() => useUiStore.getState().toggleNavCollapsed()}

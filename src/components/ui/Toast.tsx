@@ -1,3 +1,4 @@
+import { t } from '@/i18n/i18n';
 import type { KeyboardEvent } from 'react';
 import { AlertTriangle, CircleCheck, CircleX, Info, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -38,11 +39,11 @@ export function Toast({ toast: item }: ToastProps) {
       }}
       onKeyDown={onKeyDown}
       className={cn(
-        'glass pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg py-3 pr-2 pl-4',
+        'glass pointer-events-auto relative flex w-full items-start gap-3 overflow-hidden rounded-lg py-3 pe-2 ps-4',
         item.leaving ? 'pointer-events-none animate-toast-out' : 'animate-pop-in',
       )}
     >
-      <span aria-hidden="true" className={cn('absolute inset-y-2 left-0 w-0.5 rounded-full', tone.bar)} />
+      <span aria-hidden="true" className={cn('absolute inset-y-2 start-0 w-0.5 rounded-full', tone.bar)} />
       <Icon aria-hidden="true" size={18} strokeWidth={1.75} className={cn('mt-0.5 shrink-0', tone.iconClass)} />
       <div className="min-w-0 flex-1">
         <p className="text-base font-medium text-text">{item.title}</p>
@@ -53,7 +54,7 @@ export function Toast({ toast: item }: ToastProps) {
           {item.action.label}
         </Button>
       ) : null}
-      <IconButton label="Dismiss" icon={X} size="sm" onClick={dismiss} className="shrink-0" />
+      <IconButton label={t('toast.dismiss')} icon={X} size="sm" onClick={dismiss} className="shrink-0" />
     </div>
   );
 }
@@ -71,7 +72,7 @@ export function ToastRegion({ className }: { className?: string }) {
     <div
       className={cn(
         'pointer-events-none fixed inset-x-4 bottom-[calc(var(--bottom-nav-h)_+_env(safe-area-inset-bottom)_+_12px)] z-[var(--z-toast)] flex flex-col gap-2',
-        'md:inset-x-auto md:right-4 md:bottom-4 md:w-[360px]',
+        'md:inset-x-auto md:end-4 md:bottom-4 md:w-[360px]',
         className,
       )}
     >

@@ -3,9 +3,11 @@ import { Bookmark, CheckCheck, Inbox, Plus, RefreshCw, Rss, Star } from 'lucide-
 import { EmptyState, type EmptyStateProps } from '@/components/ui/EmptyState';
 import { ArticleRowSkeleton } from '@/components/ui/Skeleton';
 import { queryUnreadIds, useArticles } from '@/features/articles/articleQueries';
+import { useAppearanceStore } from '@/features/appearance/appearanceStore';
 import { useFeedMap, useFeeds, useFolders } from '@/features/feeds/feedQueries';
 import { useSetting } from '@/features/settings/settings';
 import { runSyncFromPage } from '@/features/sync/scheduler';
+import { t, useT } from '@/i18n/i18n';
 import { useLive } from '@/hooks/useLive';
 import { cn } from '@/lib/cn';
 import { viewKey, type TimelineFilter, type View } from '@/store/types';
@@ -41,17 +43,17 @@ function useViewUnreadCount(view: View): number | undefined {
 function viewTitle(view: View, feedTitle: (feedId: string) => string | undefined, folderName: (folderId: string) => string | undefined): string {
   switch (view.type) {
     case 'all':
-      return 'All';
+      return t('view.all');
     case 'unread':
-      return 'Unread';
+      return t('view.unread');
     case 'favorites':
-      return 'Favorites';
+      return t('view.favorites');
     case 'readLater':
-      return 'Read Later';
+      return t('view.readLater');
     case 'feed':
-      return feedTitle(view.feedId) ?? 'Feed';
+      return feedTitle(view.feedId) ?? t('view.feed');
     case 'folder':
-      return folderName(view.folderId) ?? 'Folder';
+      return folderName(view.folderId) ?? t('view.folder');
   }
 }
 
@@ -60,39 +62,41 @@ function emptyStateFor(view: View, filter: TimelineFilter, hasFeeds: boolean): E
   if (!hasFeeds) {
     return {
       icon: Rss,
-      title: 'No feeds yet',
-      description: 'Subscribe to a website or paste a feed URL to start reading.',
-      action: { label: 'Add your first feed', icon: Plus, onClick: () => useUiStore.getState().openDialog('addFeed') },
+      title: t('empty.noFeedsTitle'),
+      description: t('empty.noFeedsDesc'),
+      action: { label: t('empty.addFirst'), icon: Plus, onClick: () => useUiStore.getState().openDialog('addFeed') },
     };
   }
   if (filter === 'unread' || view.type === 'unread') {
-    return { icon: CheckCheck, title: "You're all caught up", description: 'No unread articles here.' };
+    return { icon: CheckCheck, title: t('empty.caughtUpTitle'), description: t('empty.caughtUpDesc') };
   }
   if (view.type === 'favorites') {
-    return { icon: Star, title: 'No favorites yet', description: 'Star an article to keep it here.' };
+    return { icon: Star, title: t('empty.favoritesTitle'), description: t('empty.favoritesDesc') };
   }
   if (view.type === 'readLater') {
-    return { icon: Bookmark, title: 'Nothing saved for later', description: 'Use Read later on an article to save it here.' };
+    return { icon: Bookmark, title: t('empty.laterTitle'), description: t('empty.laterDesc') };
   }
   return {
     icon: Inbox,
-    title: 'Nothing here yet',
-    description: 'New articles appear after a refresh.',
-    action: { label: 'Refresh', icon: RefreshCw, variant: 'steel', onClick: () => void refreshAll() },
+    title: t('empty.nothingTitle'),
+    description: t('empty.nothingDesc'),
+    action: { label: t('empty.refresh'), icon: RefreshCw, variant: 'steel', onClick: () => void refreshAll() },
   };
 }
 
 /**
- * Timeline pane: header, sub-header, and the article listbox. Reads everything from the store
- * and from live queries; the only props are the pane-level ones the AppShell passes through.
+ * Timeline pane: header, sub-header, and the article listbox. Reads everything from the store,
+ * the appearance settings and live queries; the only props are the pane-level ones AppShell passes.
  */
 export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
+  useT(); // re-render on language change; the helpers below read the active locale
   const view = useView();
   const { filter, sort } = useTimelineOptions();
   const limit = useTimelineLimit();
   const selectedId = useSelectedArticleId();
   const cutoff = useRecentlyFetchedCutoff();
   const density = useSetting('density');
+  const layout = useAppearanceStore((s) => s.layoutMode);
   const feedMap = useFeedMap();
   const feeds = useFeeds();
   const folders = useFolders();
@@ -111,9 +115,10 @@ export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
   return (
     <section
       {...rest}
+      data-pane="timeline"
       role="region"
-      aria-label="Timeline"
-      className={cn('flex min-h-0 flex-col overflow-hidden bg-panel hairline-r', className)}
+      aria-label={t('timeline.label')}
+      className={cn('flex min-h-0 flex-col overflow-hidden bg-panel hairline-e', className)}
     >
       <TimelineHeader view={view} title={title} unreadCount={unreadCount} />
       <TimelineStatus count={count} unreadCount={unreadCount} />
@@ -123,7 +128,7 @@ export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
           {articles === undefined ? (
             <div aria-busy="true" className="flex flex-col">
-              <span className="sr-only">Loading articles…</span>
+              <span className="sr-only">{t('timeline.loadingArticles')}</span>
               {Array.from({ length: SKELETON_ROWS }, (_, i) => (
                 <div key={i} className="hairline-b">
                   <ArticleRowSkeleton />
@@ -138,6 +143,7 @@ export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
               feedMap={feedMap}
               label={title}
               density={density}
+              layout={layout}
               selectedId={selectedId}
               recentCutoff={cutoff}
               canLoadMore={canLoadMore}

@@ -1,9 +1,10 @@
-import { useRef, useState, type ComponentPropsWithoutRef } from 'react';
+import { useRef, useState, type ComponentPropsWithoutRef, type CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { t, useT } from '@/i18n/i18n';
 
 export interface NavRowButtonProps extends ComponentPropsWithoutRef<'button'> {
   selected?: boolean;
@@ -24,17 +25,18 @@ export function NavRowButton({
   type = 'button',
   ...rest
 }: NavRowButtonProps) {
+  const indent: CSSProperties = rail ? {} : { paddingInlineStart: 8 + depth * 12 };
   return (
     <button
       type={type}
       aria-current={selected ? 'page' : undefined}
-      style={rail ? style : { paddingLeft: 8 + depth * 12, ...style }}
+      style={{ ...indent, ...style }}
       className={cn(
-        'focus-ring group relative flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-left text-sm select-none',
+        'focus-ring group relative flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-start text-sm select-none',
         'text-silver transition-[background-color,transform] duration-[var(--duration-instant)] ease-standard',
         'hover:bg-card hover:text-text active:scale-[0.995]',
         selected &&
-          'bg-accent-soft text-text [&>svg]:text-accent before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-accent',
+          'bg-accent-soft text-text [&>svg]:text-accent before:absolute before:top-2 before:bottom-2 before:start-0 before:w-0.5 before:rounded-full before:bg-accent',
         rail && 'w-10 justify-center px-0',
         className,
       )}
@@ -48,8 +50,8 @@ export function NavRowButton({
 /** Unread count pill, or the accent dot used in rail mode. Renders nothing for zero. */
 export function NavRowBadge({ count, selected = false, rail = false }: { count: number; selected?: boolean; rail?: boolean }) {
   if (count <= 0) return null;
-  if (rail) return <span aria-hidden="true" className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-accent" />;
-  return <Badge count={count} tone={selected ? 'accent' : 'neutral'} className="ml-auto shrink-0" />;
+  if (rail) return <span aria-hidden="true" className="absolute top-1.5 end-1.5 size-1.5 rounded-full bg-accent" />;
+  return <Badge count={count} tone={selected ? 'accent' : 'neutral'} className="ms-auto shrink-0" />;
 }
 
 export interface NavRowProps {
@@ -63,12 +65,13 @@ export interface NavRowProps {
 
 /** Smart view row (All, Unread, Favorites, Read Later). */
 export function NavRow({ icon: Icon, label, count, selected, rail, onSelect }: NavRowProps) {
+  useT();
   const button = (
     <NavRowButton
       data-nav-item
       selected={selected}
       rail={rail}
-      aria-label={count > 0 ? `${label}, ${count} unread` : label}
+      aria-label={count > 0 ? t('nav.unreadLabel', { label, count }) : label}
       onClick={onSelect}
     >
       <Icon aria-hidden="true" size={18} strokeWidth={1.75} className="shrink-0 text-text-muted" />

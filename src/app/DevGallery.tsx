@@ -168,7 +168,7 @@ export function DevGallery() {
       <header className="steel hairline-b sticky top-0 z-[var(--z-sticky)] flex h-[var(--toolbar-h)] items-center gap-3 px-4">
         <Rss aria-hidden="true" size={20} className="text-accent" />
         <h1 className="text-lg font-semibold text-text">Component gallery</h1>
-        <span className="ml-auto text-xs text-text-muted">
+        <span className="ms-auto text-xs text-text-muted">
           mobile: {String(isMobile)} · reduced motion: {String(reduced)}
         </span>
       </header>

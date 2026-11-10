@@ -72,6 +72,10 @@ export interface Settings {
   appBadge: boolean;
   /** When the app last asked the browser for persistent storage (retried at most every 14 days). */
   storagePersistAskedAt: number | null;
+  /** Play the short synthesized chimes (sync, bookmarks, deletes, errors). Off by default. */
+  soundsEnabled: boolean;
+  /** Chime volume, 0..100. */
+  soundVolume: number;
 }
 
 /**

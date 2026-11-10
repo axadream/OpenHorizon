@@ -2,6 +2,8 @@ import { BookOpen, Newspaper, Rss, type LucideIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { useUnreadCounts } from '@/features/feeds/feedQueries';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { t, useT } from '@/i18n/i18n';
+import type { TranslationKey } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { useReaderFullscreen, useSelectedArticleId, useMobilePane } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
@@ -9,14 +11,14 @@ import type { MobilePane } from '@/store/types';
 
 interface TabDef {
   pane: MobilePane;
-  label: string;
+  labelKey: TranslationKey;
   icon: LucideIcon;
 }
 
 const TABS: readonly TabDef[] = [
-  { pane: 'nav', label: 'Feeds', icon: Rss },
-  { pane: 'timeline', label: 'Timeline', icon: Newspaper },
-  { pane: 'reader', label: 'Reader', icon: BookOpen },
+  { pane: 'nav', labelKey: 'bottom.feeds', icon: Rss },
+  { pane: 'timeline', labelKey: 'bottom.timeline', icon: Newspaper },
+  { pane: 'reader', labelKey: 'bottom.reader', icon: BookOpen },
 ];
 
 /**
@@ -25,6 +27,7 @@ const TABS: readonly TabDef[] = [
  * selected.
  */
 export function BottomNav() {
+  useT();
   const isMobile = useIsMobile();
   const fullscreen = useReaderFullscreen();
   const active = useMobilePane();
@@ -35,17 +38,18 @@ export function BottomNav() {
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t('bottom.label')}
       className={cn(
         'glass fixed inset-x-0 bottom-0 z-[var(--z-bottom-nav)] rounded-none border-x-0 border-b-0',
         'h-[calc(var(--bottom-nav-h)+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)]',
       )}
     >
       <ul role="list" className="grid h-[var(--bottom-nav-h)] grid-cols-3">
-        {TABS.map(({ pane, label, icon: Icon }) => {
+        {TABS.map(({ pane, labelKey, icon: Icon }) => {
           const isActive = active === pane;
           const disabled = pane === 'reader' && selectedId === null;
           const badge = pane === 'timeline' ? unread : 0;
+          const label = t(labelKey);
           return (
             <li key={pane} className="h-full">
               <button
@@ -66,17 +70,17 @@ export function BottomNav() {
                   <span aria-hidden="true" className="absolute top-0 h-0.5 w-5 rounded-full bg-accent" />
                 ) : null}
                 <span className="relative inline-flex">
-                  <Icon aria-hidden="true" size={22} strokeWidth={isActive ? 2.25 : 1.75} />
+                  <Icon aria-hidden="true" size={22} strokeWidth={isActive ? 2.25 : 1.75} className="rtl:-scale-x-100" />
                   {badge > 0 ? (
                     <Badge
                       count={badge}
                       tone="accent"
-                      className="absolute -top-1.5 -right-3 h-4 min-w-4 px-1 text-[10px] leading-none"
+                      className="absolute -top-1.5 -end-3 h-4 min-w-4 px-1 text-[10px] leading-none"
                     />
                   ) : null}
                 </span>
                 <span>{label}</span>
-                {badge > 0 ? <span className="sr-only">, {badge} unread</span> : null}
+                {badge > 0 ? <span className="sr-only">, {t('bottom.unread', { count: badge })}</span> : null}
               </button>
             </li>
           );
