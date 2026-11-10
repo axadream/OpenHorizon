@@ -24,10 +24,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep screen on while reading: an article open in the reader keeps the screen awake. On by default, switch in Reading preferences, hidden where the browser has no Screen Wake Lock API.
 - Window Controls Overlay: an installed desktop app draws its title bar with the window buttons on top of it, and the content starts below.
 - Gestures: swipe right on an article to delete it (with undo), swipe left to toggle its favorite, long press for the article action sheet with haptic feedback, and pull to refresh the timeline.
+- Readability: "Load full article" in the reader fetches the original page and keeps its readable text offline (Mozilla Readability, Apache-2.0, loaded as its own lazy chunk). A toggle switches between the feed text and the full article.
+- Save page: save the readable text of any web page as an article in a local "Saved pages" list, from the new Save page tab of Add feed, or from the "Save this page as an article" button shown when Discover finds no feeds. Saved pages are never synced or exported to OPML.
+- YouTube: channel, @handle, /c/ and /user/ addresses, playlist links and video links (watch, shorts, embed, live, youtu.be) resolve to their Atom feeds. Discover offers the uploader's channel and a `list=` playlist for video links. Searching YouTube channels by name is best-effort.
+- Watch lists: local lists of YouTube videos ("Watch later" by default, and more on request). Add a video from the Save page tab, the Add video item of a watch list's menu, the reader toolbar or the article action sheet. Each video shows its YouTube title and thumbnail, fetched through YouTube's oEmbed endpoint with a fallback.
+- Embedded video player: a YouTube video article shows a privacy-first player. The thumbnail and a play button load first; the YouTube player (youtube-nocookie.com) loads only when you press play. "Play YouTube videos here" in Reading preferences switches the player off, leaving a link.
+- YouTube Atom feeds show thumbnails and descriptions: media:group is read, and the hqdefault thumbnail is derived from yt:videoId when a feed omits media:thumbnail.
 
 ### Changed
 
 - Feed syncs report progress as "Syncing feed X of Y".
+- Retention keeps articles whose full text was loaded, like favorites and Read Later articles. Local lists (saved pages and watch lists) are never pruned.
+- The service worker answers navigations only for the app's own origin, so third-party frames such as the YouTube player are never answered with the app shell.
 - Adding a feed by URL reports each step: checking the address, fetching, reading and saving.
 - OPML imports start their article sync through the same path as a manual refresh, so it shows as its own activity.
 - The keyboard shortcut list in Settings is generated from the hotkey table, and now includes Delete, Menu / Shift+F10 and Home / End.

@@ -12,7 +12,7 @@ export type View =
 export type TimelineFilter = 'all' | 'unread';
 export type TimelineSort = 'newest' | 'oldest';
 export type MobilePane = 'nav' | 'timeline' | 'reader';
-export type AddFeedTab = 'url' | 'discover' | 'xml' | 'opml';
+export type AddFeedTab = 'url' | 'discover' | 'save' | 'xml' | 'opml';
 
 /** An OPML file handed over by the OS (file handler) or the launch queue; read as text. */
 export interface OpmlFilePayload {
@@ -48,6 +48,15 @@ export interface ArticleActionsPayload {
   y: number;
 }
 
+/**
+ * Add a YouTube video to a watch list. `url` prefills the address; `listId` preselects a list
+ * (the "Add video" menu item of a watch list).
+ */
+export interface WatchListDialogPayload {
+  url?: string;
+  listId?: string;
+}
+
 /** Payload type per dialog name (what `openDialog` accepts). */
 export interface DialogPayloads {
   addFeed: AddFeedDialogPayload;
@@ -55,6 +64,7 @@ export interface DialogPayloads {
   share: SharePayload;
   changelog: ChangelogDialogPayload;
   articleActions: ArticleActionsPayload;
+  watchList: WatchListDialogPayload;
 }
 
 export type DialogName = keyof DialogPayloads;
@@ -66,6 +76,7 @@ export interface DialogClosedValues {
   share: null;
   changelog: false;
   articleActions: false;
+  watchList: false;
 }
 
 /** Current state of every dialog: its payload when open, its closed value otherwise. */
@@ -75,6 +86,7 @@ export interface DialogSlots {
   share: DialogClosedValues['share'] | DialogPayloads['share'];
   changelog: DialogClosedValues['changelog'] | DialogPayloads['changelog'];
   articleActions: DialogClosedValues['articleActions'] | DialogPayloads['articleActions'];
+  watchList: DialogClosedValues['watchList'] | DialogPayloads['watchList'];
 }
 
 export interface SyncProgress {

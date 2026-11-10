@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, Circle, CircleCheck, ExternalLink, Share2, Star, Trash2, type LucideIcon } from 'lucide-react';
+import { Bookmark, Circle, CircleCheck, ExternalLink, ListVideo, Share2, Star, Trash2, type LucideIcon } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Menu, MenuItem } from '@/components/ui/Menu';
 import type { Article } from '@/db/schema';
@@ -17,6 +17,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
+import { youTubeVideoIdOf } from '@/lib/youtube';
 import { useDialog } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import type { ArticleActionsPayload } from '@/store/types';
@@ -100,6 +101,16 @@ function buildActions(article: Article, siteUrl: string | undefined): SheetActio
         if (article.link) window.open(article.link, '_blank', 'noopener,noreferrer');
       }),
     },
+    ...(youTubeVideoIdOf(article.link)
+      ? [
+          {
+            key: 'watchList',
+            label: t('lists.add'),
+            icon: ListVideo,
+            run: then(() => useUiStore.getState().openDialog('watchList', { url: article.link })),
+          },
+        ]
+      : []),
     {
       key: 'delete',
       label: t('article.delete'),

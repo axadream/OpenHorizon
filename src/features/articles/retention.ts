@@ -17,8 +17,9 @@ export async function pruneTombstones(feedId: string, now: number = Date.now()):
 }
 
 /**
- * Delete articles of one feed beyond the newest `keep`, never touching
- * read-later or favorite articles. Unread articles are eligible. Also trims old tombstones.
+ * Delete articles of one feed beyond the newest `keep`, never touching read-later or favorite
+ * articles, nor articles whose full text was loaded (fullContent: the user asked to keep it
+ * readable offline). Unread articles are eligible. Also trims old tombstones.
  */
 export async function pruneFeed(feedId: string, keep: number): Promise<number> {
   const older = await db.articles
@@ -27,16 +28,21 @@ export async function pruneFeed(feedId: string, keep: number): Promise<number> {
     .reverse()
     .offset(keep)
     .toArray();
-  const victims = older.filter(a => a.isReadLater === 0 && a.isFavorite === 0).map(a => a.id);
+  const victims = older
+    .filter(a => a.isReadLater === 0 && a.isFavorite === 0 && a.fullContent === undefined)
+    .map(a => a.id);
   if (victims.length) await db.articles.bulkDelete(victims);
   await pruneTombstones(feedId);
   return victims.length;
 }
 
-/** Prune every feed with the user's retention setting (run on app start and after syncs). */
+/**
+ * Prune every feed with the user's retention setting (run on app start and after syncs).
+ * Local list feeds (saved pages, watch lists) are curated by hand and are never pruned.
+ */
 export async function pruneAll(keep?: number): Promise<number> {
   const limit = keep ?? (await getSetting('retentionPerFeed'));
-  const feeds = await db.feeds.toArray();
+  const feeds = (await db.feeds.toArray()).filter(f => f.listKind === undefined);
   let removed = 0;
   for (const feed of feeds) {
     removed += await pruneFeed(feed.id, limit);

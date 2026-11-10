@@ -4,6 +4,9 @@ import { DB_NAME, STORES_V1, STORES_V2 } from './migrations';
 /** IndexedDB cannot index booleans, so indexed flags are 0 | 1. */
 export type Flag = 0 | 1;
 
+/** Kind of a local list feed (Feed.listKind). */
+export type ListKind = 'saved' | 'watch';
+
 export interface Feed {
   id: string;
   /** Canonical feed URL (normalized). For pasted XML without a source: "manual:<uuid>" */
@@ -18,6 +21,11 @@ export interface Feed {
   isFavorite: Flag;
   /** 1 = created from pasted XML without URL; never synced */
   manual: Flag;
+  /**
+   * Local list feeds (manual, never synced or exported): 'saved' for saved pages, 'watch' for
+   * YouTube watch lists. Unindexed, so no Dexie version bump is needed.
+   */
+  listKind?: ListKind;
   language?: string;
   etag?: string;
   lastModified?: string;
@@ -58,6 +66,13 @@ export interface Article {
   isFavorite: Flag;
   readAt?: number;
   enclosures?: { url: string; type?: string; length?: number }[];
+  /**
+   * Full article text fetched from the original page (sanitized HTML), set by "Load full article"
+   * or by saving a page. Unindexed. Kept by retention like favorites.
+   */
+  fullContent?: string;
+  /** When fullContent was stored (epoch ms). */
+  fullContentAt?: number;
 }
 
 export interface Settings {

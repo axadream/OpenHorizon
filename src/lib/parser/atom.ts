@@ -1,5 +1,6 @@
 import { resolveUrl } from '@/lib/url';
 import { cleanText, escapeXml } from '@/lib/text';
+import { youtubeThumbnailUrl } from '@/lib/youtube';
 import { NS, attr, child, children, innerXml, text } from '../xml/dom';
 import { firstImgSrc, isImageType, largestByWidth, toInt } from './media';
 import { parseDate } from './dates';
@@ -50,13 +51,21 @@ export function parseAtom(doc: Document, sourceUrl: string): ParsedFeed {
   };
 }
 
+const YT_VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
 function atomEntry(el: Element, feedBase: string): ParsedItem {
   const base = attr(el, 'xml:base') || feedBase;
   const links = children(el, 'link', NS.atom);
+  // Media extensions sit either on the entry or inside <media:group> (YouTube uses the group).
+  const group = child(el, 'group', NS.media);
+  const mediaScopes: Element[] = group ? [el, group] : [el];
 
   const contentHtml = atomHtml(child(el, 'content', NS.atom));
   const summaryHtml = atomHtml(child(el, 'summary', NS.atom));
-  const contentRaw = contentHtml || summaryHtml;
+  const mediaDescription = mediaScopes.map((s) => text(child(s, 'description', NS.media))).find((d) => d) ?? '';
+  // Plain-text media:description becomes HTML with line breaks, used when the entry has no content.
+  const descriptionHtml = mediaDescription ? escapeXml(mediaDescription).replace(/\r?\n/g, '<br>') : '';
+  const contentRaw = contentHtml || summaryHtml || descriptionHtml;
 
   const enclosures: { url: string; type?: string; length?: number }[] = [];
   const imageLinks: { url: string; width?: number }[] = [];
@@ -70,18 +79,26 @@ function atomEntry(el: Element, feedBase: string): ParsedItem {
   }
 
   const mediaImages: { url: string; width?: number }[] = [];
-  for (const m of children(el, 'content', NS.media)) {
-    const url = resolveUrl(attr(m, 'url'), base);
-    if (url && (attr(m, 'medium') === 'image' || isImageType(attr(m, 'type')))) {
-      mediaImages.push({ url, width: toInt(attr(m, 'width')) });
+  for (const scope of mediaScopes) {
+    for (const m of children(scope, 'content', NS.media)) {
+      const url = resolveUrl(attr(m, 'url'), base);
+      if (url && (attr(m, 'medium') === 'image' || isImageType(attr(m, 'type')))) {
+        mediaImages.push({ url, width: toInt(attr(m, 'width')) });
+      }
     }
   }
+  const mediaThumb = mediaScopes.map((s) => child(s, 'thumbnail', NS.media)).find((t) => t) ?? null;
+
+  // YouTube entries carry yt:videoId; their hqdefault thumbnail is a safe fallback when no media:thumbnail exists.
+  const videoId = text(child(el, 'videoId', NS.yt));
+  const youtubeThumb = YT_VIDEO_ID_RE.test(videoId) ? youtubeThumbnailUrl(videoId) : '';
 
   const thumbnailUrl =
     largestByWidth(mediaImages)?.url ||
-    resolveUrl(attr(child(el, 'thumbnail', NS.media), 'url'), base) ||
+    resolveUrl(attr(mediaThumb, 'url'), base) ||
     imageLinks[0]?.url ||
-    resolveUrl(firstImgSrc(contentRaw) ?? '', base);
+    resolveUrl(firstImgSrc(contentRaw) ?? '', base) ||
+    youtubeThumb;
 
   const author = cleanText(text(child(child(el, 'author', NS.atom), 'name', NS.atom))) || undefined;
 
@@ -91,7 +108,7 @@ function atomEntry(el: Element, feedBase: string): ParsedItem {
     title: atomHtml(child(el, 'title', NS.atom)),
     author,
     contentRaw,
-    summarySource: summaryHtml || contentHtml,
+    summarySource: summaryHtml || contentHtml || descriptionHtml,
     publishedAt:
       parseDate(text(child(el, 'published', NS.atom))) ?? parseDate(text(child(el, 'updated', NS.atom))),
     thumbnailUrl: thumbnailUrl || undefined,

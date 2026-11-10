@@ -1,15 +1,22 @@
-import { useRef, useState, type KeyboardEvent } from 'react';
-import { Bookmark, Circle, CircleCheck, ExternalLink, List, Maximize2, Minimize2, Share2, Star, Type, ArrowLeft } from 'lucide-react';
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { Bookmark, Circle, CircleCheck, ExternalLink, FileText, List, ListVideo, Maximize2, Minimize2, Share2, Star, Type, ArrowLeft } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { ReaderPrefsPopover } from '@/components/reader/ReaderPrefsPopover';
 import { markRead, markUnread, setFavorite, setReadLater } from '@/features/articles/articleActions';
 import type { Article, Feed } from '@/db/schema';
+import { describeLoadError, loadFullArticle } from '@/features/reader/fullArticle';
 import { share } from '@/features/sharing/share';
 import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
+import { cleanText } from '@/lib/text';
 import { timeAgo } from '@/lib/time';
+import { toast } from '@/lib/toast';
+import { youTubeVideoIdOf } from '@/lib/youtube';
 import { useTimelineOverlay } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
+
+/** Feed text shorter than this (in characters, markup removed) is flagged as "load the full article". */
+export const SHORT_TEXT_CHARS = 700;
 
 export interface ReaderToolbarProps {
   article: Article;
@@ -54,12 +61,28 @@ export function ReaderToolbar({
   useT();
   const overlayOpen = useTimelineOverlay();
   const [prefsOpen, setPrefsOpen] = useState(false);
+  const [loadingFull, setLoadingFull] = useState(false);
   const prefsButtonRef = useRef<HTMLButtonElement>(null);
 
   const isRead = article.isRead === 1;
   const isFavorite = article.isFavorite === 1;
   const isLater = article.isReadLater === 1;
   const shareUrl = article.link || feed?.siteUrl || '';
+  const videoId = youTubeVideoIdOf(article.link);
+  const shortText = useMemo(() => cleanText(article.contentRaw).length < SHORT_TEXT_CHARS, [article.contentRaw]);
+
+  const onLoadFull = async () => {
+    if (!article.link || loadingFull) return;
+    setLoadingFull(true);
+    try {
+      await loadFullArticle(article.id, article.link);
+    } catch (err) {
+      const info = describeLoadError(err);
+      toast.error(info.title, info.detail ? { description: info.detail } : undefined);
+    } finally {
+      setLoadingFull(false);
+    }
+  };
 
   return (
     <div
@@ -114,6 +137,25 @@ export function ReaderToolbar({
         ) : (
           <IconButton label={t('reader.openOriginal')} icon={ExternalLink} size="sm" disabled />
         )}
+
+        {article.link ? (
+          <IconButton
+            label={loadingFull ? t('reader.loadingFull') : t('reader.loadFull')}
+            icon={FileText}
+            size="sm"
+            active={shortText && article.fullContent === undefined}
+            disabled={loadingFull}
+            onClick={() => void onLoadFull()}
+          />
+        ) : null}
+        {videoId ? (
+          <IconButton
+            label={t('lists.add')}
+            icon={ListVideo}
+            size="sm"
+            onClick={() => useUiStore.getState().openDialog('watchList', { url: article.link })}
+          />
+        ) : null}
 
         <IconButton
           label={t('reader.favorite')}

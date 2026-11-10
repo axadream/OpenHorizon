@@ -2,7 +2,7 @@
 import { ExpirationPlugin } from 'workbox-expiration';
 import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
-import { NavigationRoute, registerRoute } from 'workbox-routing';
+import { registerRoute } from 'workbox-routing';
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { refreshAppBadgeFromDb } from '@/features/system/badge';
 import { syncAll } from '@/features/sync/syncAll';
@@ -81,9 +81,18 @@ cleanupOutdatedCaches();
 
 // ---- app shell: precache (cache-first) + SPA navigations ----
 precacheAndRoute(self.__WB_MANIFEST);
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api\//] }));
+// Same-origin navigations only. workbox's NavigationRoute matches every navigate request, including
+// cross-origin ones, so a navigation to another site would get index.html. YouTube player iframes
+// (youtube-nocookie.com) and any other third-party frame must never be answered from the app shell.
+registerRoute(
+  ({ request, url }) =>
+    request.mode === 'navigate' && url.origin === self.location.origin && !url.pathname.startsWith('/api/'),
+  createHandlerBoundToURL('index.html'),
+);
 
-// ---- favicons and other images: stale-while-revalidate ----
+// ---- favicons, article images and video thumbnails (i.ytimg.com): stale-while-revalidate ----
+// YouTube thumbnails arrive as image requests and use this route. Player iframes (destination
+// 'iframe') match none of the routes below, so they always go to the network and are never cached.
 registerRoute(
   ({ url, request }) =>
     request.destination === 'image' ||

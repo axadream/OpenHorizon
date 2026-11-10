@@ -127,6 +127,7 @@ describe('dialogs', () => {
       share: null,
       changelog: false,
       articleActions: false,
+      watchList: false,
     });
   });
 });

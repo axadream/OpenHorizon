@@ -54,17 +54,23 @@ function resolveSrcset(el: Element, base: string | undefined): void {
   else el.removeAttribute('srcset');
 }
 
+export interface SanitizeOptions {
+  /** Remove YouTube iframes too (the reader mounts its own privacy-first player instead). */
+  dropYouTubeEmbeds?: boolean;
+}
+
 /**
  * Sanitize article HTML for display. Relative `href`/`src`/`srcset` are resolved
- * against `baseUrl` (usually the article link). Only YouTube embeds survive as iframes.
+ * against `baseUrl` (usually the article link). Only YouTube embeds survive as iframes,
+ * unless `dropYouTubeEmbeds` is set.
  */
-export function sanitizeHtml(html: string, baseUrl?: string): string {
+export function sanitizeHtml(html: string, baseUrl?: string, opts: SanitizeOptions = {}): string {
   const purifier = DOMPurify();
 
   purifier.addHook('uponSanitizeElement', (node, data) => {
     if (data.tagName !== 'iframe') return;
     const el = node as Element;
-    if (!isYouTubeEmbed(el.getAttribute('src') ?? '')) {
+    if (opts.dropYouTubeEmbeds || !isYouTubeEmbed(el.getAttribute('src') ?? '')) {
       el.remove();
       return;
     }

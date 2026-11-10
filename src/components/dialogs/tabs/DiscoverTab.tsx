@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Check, Rss } from 'lucide-react';
+import { Bookmark, Check, Rss } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,10 +9,14 @@ import { AlreadySubscribedError, addFeedFromUrl } from '@/features/feeds/addFeed
 import { discoverFeeds, type FeedCandidate } from '@/lib/discovery/discoverFeeds';
 import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { hostname, normalizeFeedUrl } from '@/lib/url';
+import { isYouTubeKeywordQuery } from '@/lib/youtube';
 import type { FeedKind } from '@/lib/parser/types';
+import { t, useT, type TranslationKey } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { activityPercent, startActivity } from '@/store/activityStore';
-import { onFeedSubscribed } from '@/components/dialogs/subscribe';
+import { describeSaveError, runSavePage } from '@/components/dialogs/saveActions';
+import { onFeedSubscribed, showArticle, toHttpUrl } from '@/components/dialogs/subscribe';
+import { YouTubeChannelSearch } from '@/components/dialogs/tabs/YouTubeChannelSearch';
 
 export interface DiscoverTabProps {
   /** Website to search on mount (set when an HTML page was pasted in the URL tab). */
@@ -26,6 +30,13 @@ const KIND_LABEL: Record<FeedKind, string> = {
   rss1: 'RSS',
   atom: 'Atom',
   json: 'JSON',
+};
+
+/** Progress labels reported by discoverFeeds, mapped to their translations. */
+const PROGRESS_KEY: Record<string, TranslationKey> = {
+  'Fetching page': 'discover.stepPage',
+  'Reading links': 'discover.stepLinks',
+  'Checking feeds': 'discover.stepCheck',
 };
 
 /** Message shown in the search alert: a bold title and an optional explanation. */
@@ -59,24 +70,26 @@ function CandidateRow({ candidate, subscribed, busy, onAdd }: CandidateRowProps)
               {KIND_LABEL[candidate.kind]}
             </span>
           ) : null}
-          {candidate.verified === false ? <Badge label="unverified" className="shrink-0 text-[10px]" /> : null}
+          {candidate.verified === false ? (
+            <Badge label={t('discover.unverified')} className="shrink-0 text-[10px]" />
+          ) : null}
         </div>
         <p className="truncate text-xs text-text-muted">{candidate.url}</p>
       </div>
       {subscribed ? (
         <span className="inline-flex shrink-0 items-center gap-1 text-sm text-text-muted">
           <Check aria-hidden="true" size={14} strokeWidth={2} />
-          Subscribed
+          {t('discover.subscribed')}
         </span>
       ) : (
         <Button
           variant="primary"
           size="sm"
           loading={busy}
-          aria-label={`Add ${title}`}
+          aria-label={t('discover.addName', { name: title })}
           onClick={() => onAdd(candidate)}
         >
-          Add
+          {t('discover.add')}
         </Button>
       )}
     </li>
@@ -84,6 +97,7 @@ function CandidateRow({ candidate, subscribed, busy, onAdd }: CandidateRowProps)
 }
 
 export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
+  useT();
   const uid = useId();
   const inputId = `${uid}-site`;
   const feeds = useFeeds();
@@ -94,6 +108,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<SearchError | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
+  const [savingPage, setSavingPage] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -105,24 +120,25 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
     setSearching(true);
     setError(null);
     setResults(null);
-    const activity = startActivity({ label: 'Fetching page 0 of 2 (0%)', total: 2 });
+    const activity = startActivity({ label: `${t('discover.stepPage')} 0 of 2 (0%)`, total: 2 });
     try {
       const found = await discoverFeeds(input, {
         signal: ctrl.signal,
         onProgress: (done, total, label) => {
           const pct = activityPercent({ done, total }) ?? 0;
-          activity.update(done, total, `${label} ${done} of ${total} (${pct}%)`);
+          const name = PROGRESS_KEY[label] ? t(PROGRESS_KEY[label]) : label;
+          activity.update(done, total, `${name} ${done} of ${total} (${pct}%)`);
         },
       });
       if (ctrl.signal.aborted) {
-        activity.complete('Search cancelled');
+        activity.complete(t('discover.searchCancelled'));
         return;
       }
       setResults(found);
-      activity.complete(`Found ${found.length} ${found.length === 1 ? 'candidate' : 'candidates'}`);
+      activity.complete(t('plural.candidates', { count: found.length }));
     } catch (err) {
       if (ctrl.signal.aborted) {
-        activity.complete('Search cancelled');
+        activity.complete(t('discover.searchCancelled'));
         return;
       }
       const described = describeError(err);
@@ -141,7 +157,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
   function submit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     if (!site.trim()) {
-      setError({ title: 'Enter a website address' });
+      setError({ title: t('discover.enterSite') });
       return;
     }
     void run(site);
@@ -154,13 +170,38 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
       onFeedSubscribed(feed);
     } catch (err) {
       if (err instanceof AlreadySubscribedError) {
-        toast.info("You're already subscribed to this feed.");
+        toast.info(t('add.alreadySubscribed'));
       } else {
         const { title, detail } = describeError(err);
-        toast.error("Couldn't add this feed", { description: detail ? `${title} ${detail}` : title });
+        toast.error(t('discover.couldNotAdd'), { description: detail ? `${title} ${detail}` : title });
       }
     } finally {
       setAdding(null);
+    }
+  }
+
+  /** Save the typed page as an article (after a search found no feeds). */
+  async function savePage(): Promise<void> {
+    const target = toHttpUrl(site);
+    if (!target) {
+      setError({ title: t('add.invalid') });
+      return;
+    }
+    setSavingPage(true);
+    setError(null);
+    try {
+      const outcome = await runSavePage(target);
+      if (outcome.kind === 'saved') {
+        toast.success(t('save.saved', { title: outcome.article.title }));
+        showArticle(outcome.article.feedId, outcome.article.id);
+      } else if (outcome.kind === 'duplicate') {
+        toast.info(t('save.duplicate'));
+        showArticle(outcome.feedId, outcome.articleId);
+      }
+    } catch (err) {
+      setError(describeSaveError(err));
+    } finally {
+      setSavingPage(false);
     }
   }
 
@@ -174,7 +215,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
 
       <form onSubmit={submit} noValidate className="flex flex-col gap-2">
         <label htmlFor={inputId} className="text-sm font-medium text-silver">
-          Website URL
+          {t('discover.label')}
         </label>
         <div className="flex items-start gap-2">
           <Input
@@ -189,10 +230,12 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
             onChange={(e) => setSite(e.target.value)}
           />
           <Button type="submit" variant="steel" loading={searching}>
-            Find feeds
+            {t('discover.find')}
           </Button>
         </div>
       </form>
+
+      {isYouTubeKeywordQuery(site) ? <YouTubeChannelSearch query={site} /> : null}
 
       {error ? (
         <div role="alert" className="flex flex-col gap-1 text-sm text-danger">
@@ -204,7 +247,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
       {searching ? (
         <div className="flex flex-col gap-2" aria-busy="true">
           <span className="sr-only" role="status">
-            Searching for feeds
+            {t('discover.searching')}
           </span>
           <Skeleton className="h-14 w-full rounded-md" />
           <Skeleton className="h-14 w-full rounded-md" />
@@ -227,9 +270,22 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
       ) : null}
 
       {!searching && results && results.length === 0 && !error ? (
-        <p role="status" className="text-sm text-text-muted">
-          <span className="font-semibold text-text">No feeds found on this page.</span> Try the feed URL directly.
-        </p>
+        <div className="flex flex-col gap-3">
+          <p role="status" className="text-sm text-text-muted">
+            <span className="font-semibold text-text">{t('discover.noFeeds')}</span> {t('discover.tryDirect')}
+          </p>
+          <div>
+            <Button
+              variant="steel"
+              size="sm"
+              leadingIcon={Bookmark}
+              loading={savingPage}
+              onClick={() => void savePage()}
+            >
+              {t('save.discoverButton')}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   );

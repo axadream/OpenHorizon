@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { AlertTriangle, Loader2, MoreHorizontal, Star } from 'lucide-react';
+import { AlertTriangle, Bookmark, ListVideo, Loader2, MoreHorizontal, Star } from 'lucide-react';
 import { FeedAvatar } from '@/components/ui/Avatar';
 import { IconButton } from '@/components/ui/IconButton';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -51,8 +51,13 @@ export function FeedRow({
     );
   }
 
+  // Local lists (saved pages, watch lists) get their own icon instead of a favicon.
+  const ListIcon = feed.listKind === 'watch' ? ListVideo : feed.listKind === 'saved' ? Bookmark : null;
+
   const avatar = syncing ? (
     <Loader2 aria-hidden="true" size={18} strokeWidth={1.75} className="shrink-0 animate-spin-slow text-accent" />
+  ) : ListIcon ? (
+    <ListIcon aria-hidden="true" size={18} strokeWidth={1.75} className="shrink-0 text-text-muted" />
   ) : (
     <span className="relative inline-flex shrink-0">
       <FeedAvatar title={feed.title} src={feed.faviconUrl} size={18} />

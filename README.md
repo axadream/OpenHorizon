@@ -46,6 +46,8 @@ OpenHorizon is a mobile-first, installable PWA RSS reader inspired by the free d
 - **Layouts**: Comfortable, List (one line per article), Cards (larger thumbnails and summaries) and Reading (full-width reader with the article list as a slide-over). Density adjusts the spacing.
 - **Sounds**: optional, synthesized chimes for sync results, bookmarks, deletes and errors, with volume and preview. Off by default.
 - **Languages**: English, Romanian and Arabic (with right-to-left layout), chosen in Settings or automatic from your browser.
+- **Full articles and saved pages**: "Load full article" fetches the original page and keeps its readable text for offline reading (extraction by Mozilla Readability). "Save page" keeps any web page as an article in a local Saved pages list.
+- **YouTube**: channel, handle, playlist and video links become feeds, channels can be searched by name (best-effort), videos can go to local watch lists, and video articles show a privacy-first player. See [YouTube support](#youtube-support).
 - **Keyboard navigation**: every common action has a shortcut (see [Keyboard shortcuts](#keyboard-shortcuts)).
 - **Accessible**: landmarks, listbox semantics for the article list, visible focus rings and high contrast and dyslexia-friendly options.
 
@@ -121,6 +123,23 @@ VITE_CORS_PROXY=https://openhorizon-proxy.<account>.workers.dev/api/proxy?url={u
 ```
 
 For a GitHub Pages build, add the same value as a repository variable named `VITE_CORS_PROXY` under **Settings → Secrets and variables → Actions → Variables**. The deploy workflow passes it to the build. The `{url}` placeholder is replaced with the encoded feed address.
+
+## YouTube support
+
+What works:
+
+- **Channels, handles and legacy names**: `youtube.com/channel/UC…`, `youtube.com/@name`, `/c/name` and `/user/name` resolve to the channel's Atom feed. For handles and custom names the channel id is read from the channel page once.
+- **Playlists**: `youtube.com/playlist?list=…` links, and `list=` on a video link.
+- **Videos in Discover**: a watch, shorts, embed, live or youtu.be link offers the uploader's channel feed and, when `list=` is present, that playlist's feed.
+- **Channel search by name (best-effort)**: type a name without a dot (for example `veritasium`) and press **Search YouTube channels**. The search reads YouTube's public results page, which is not an official API, so it can stop working whenever YouTube changes that page. If it fails, paste the channel address instead.
+- **Watch lists**: "Watch later" and any number of lists you create. Each video is stored with its title and thumbnail, taken from YouTube's public oEmbed endpoint. Lists stay on this device.
+- **Video articles**: a YouTube link in an article shows the video in the reader. Reading preferences turn the player off, leaving a link.
+
+Privacy:
+
+- The player is a facade. Only the thumbnail and a play button are shown at first; the player (youtube-nocookie.com, YouTube's privacy-enhanced embed host) loads when you press play.
+- The thumbnail is an image from YouTube's image host (`i.ytimg.com`), requested when the article is displayed.
+- Adding a video to a watch list asks YouTube's oEmbed endpoint for its title, and channel search asks YouTube's results page. Both go through the same proxy routes as feeds.
 
 ## Keyboard shortcuts
 
@@ -220,6 +239,9 @@ OpenHorizon also builds on excellent open-source work:
 - [Dexie](https://dexie.org/) for IndexedDB storage
 - [Workbox](https://developer.chrome.com/docs/workbox/) for the service worker
 - [Tailwind CSS](https://tailwindcss.com/) for styling
+- [Mozilla Readability](https://github.com/mozilla/readability) (Apache License 2.0) for extracting the article text of web pages. It is loaded only when you load a full article or save a page, as its own chunk.
+
+A C# reference copy of a desktop RSS reader is kept in the local `OrizontRSS-main` folder. It is gitignored, not part of this repository, and not bundled with the app. The YouTube channel search was re-implemented in TypeScript from that reference's approach.
 - [OpenDyslexic](https://opendyslexic.org/), the Dyslexic font, bundled through [@fontsource/opendyslexic](https://fontsource.org/fonts/opendyslexic). Licensed under the **SIL Open Font License 1.1** (the licence text ships in the package).
 - Sans, Serif and Mono use the system font stacks; no other fonts are bundled.
 

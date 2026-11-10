@@ -27,6 +27,8 @@ export interface ReaderPrefs {
   images: boolean;
   /** Hold a screen wake lock while an article is open in the reader (where the browser supports it). */
   keepScreenOn: boolean;
+  /** Play YouTube videos inside the reader (privacy-first: loads only after the user presses play). Off shows a link only. */
+  embedVideos: boolean;
 }
 
 export const DEFAULT_READER_PREFS: ReaderPrefs = {
@@ -36,6 +38,7 @@ export const DEFAULT_READER_PREFS: ReaderPrefs = {
   width: 'narrow',
   images: true,
   keepScreenOn: true,
+  embedVideos: true,
 };
 
 /** Inline CSS custom properties consumed by .reader-content (reader.css). */

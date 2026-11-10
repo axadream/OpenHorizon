@@ -1,5 +1,5 @@
 import type { RefObject } from 'react';
-import { CheckCheck, Folder as FolderIcon, FolderPlus, Inbox, Link as LinkIcon, Pencil, Star, Trash2 } from 'lucide-react';
+import { CheckCheck, Folder as FolderIcon, FolderPlus, Inbox, Link as LinkIcon, ListVideo, Pencil, Star, Trash2 } from 'lucide-react';
 import { Menu, MenuItem } from '@/components/ui/Menu';
 import { db } from '@/db/db';
 import type { Feed, Folder } from '@/db/schema';
@@ -150,6 +150,11 @@ export function FeedContextMenu({ feed, anchorRef, onClose, onRename, onNewFolde
         {t('nav.newFolderMenu')}
       </MenuItem>
       <div role="separator" className="hairline-t my-1.5" />
+      {feed.listKind === 'watch' ? (
+        <MenuItem icon={ListVideo} onClick={() => useUiStore.getState().openDialog('watchList', { listId: feed.id })}>
+          {t('lists.addVideo')}
+        </MenuItem>
+      ) : null}
       <MenuItem icon={Star} onClick={() => run(() => toggleFavoriteFeed(feed), t('nav.couldNotUpdateFeed'))}>
         {feed.isFavorite === 1 ? t('nav.unfavoriteFeed') : t('nav.favoriteFeed')}
       </MenuItem>
@@ -159,9 +164,11 @@ export function FeedContextMenu({ feed, anchorRef, onClose, onRename, onNewFolde
       >
         {t('nav.markAllRead')}
       </MenuItem>
-      <MenuItem icon={LinkIcon} onClick={() => void copyFeedUrl(feed.url)}>
-        {t('nav.copyFeedUrl')}
-      </MenuItem>
+      {feed.listKind === undefined ? (
+        <MenuItem icon={LinkIcon} onClick={() => void copyFeedUrl(feed.url)}>
+          {t('nav.copyFeedUrl')}
+        </MenuItem>
+      ) : null}
       <div role="separator" className="hairline-t my-1.5" />
       <MenuItem icon={Trash2} destructive onClick={() => run(() => unsubscribe(feed), t('nav.couldNotUnsubscribe'))}>
         {t('nav.unsubscribe')}

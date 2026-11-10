@@ -3,6 +3,13 @@ import type { FeedKind } from '@/lib/parser/types';
 import { normalizeFeedUrl, resolveUrl, withWebScheme } from '@/lib/url';
 import { parseHtml } from '@/lib/xml/dom';
 import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
+import {
+  extractChannelIdFromHtml,
+  parseYouTubeUrl,
+  youtubeChannelFeedUrl,
+  youtubeFeedUrl,
+  youtubePlaylistFeedUrl,
+} from '@/lib/youtube';
 
 export interface FeedCandidate {
   url: string;
@@ -84,9 +91,69 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
     return [{ url: res.finalUrl, title: direct.title || undefined, kind: direct.kind, source: 'direct', verified: true }];
   }
 
+  // Step 3b: YouTube channel, handle, playlist or video pages. Their Atom feeds come first.
+  const youtube = await youtubeCandidates(url, res.finalUrl, res.text, validate, opts.signal);
+  if (youtube.some((c) => c.verified === true)) return youtube;
+
+  // Steps 4-6: links, anchors, platform hints and well-known paths.
+  const generic = await discoverFromPage(url, res.text, res.finalUrl, validate, opts);
+  return dedupe([...youtube, ...generic]);
+}
+
+/**
+ * Feeds for a YouTube address. Channel, playlist and legacy user references name their feed in the
+ * URL. Handles, custom names and videos get their channel id from the fetched page; a video with
+ * list= also offers that playlist's feed. Candidates are probed like the others (verified flag).
+ */
+async function youtubeCandidates(
+  input: URL,
+  finalUrl: string,
+  html: string,
+  validate: boolean,
+  signal?: AbortSignal,
+): Promise<FeedCandidate[]> {
+  const ref = [parseYouTubeUrl(input.href), parseYouTubeUrl(finalUrl)].find((r) => r.kind !== 'none') ?? { kind: 'none' as const };
+  if (ref.kind === 'none' || ref.kind === 'feed') return [];
+
+  const feedUrls: string[] = [];
+  if (ref.kind === 'channel' || ref.kind === 'user' || ref.kind === 'playlist') {
+    const direct = youtubeFeedUrl(ref);
+    if (direct) feedUrls.push(direct);
+  } else {
+    const channelId = extractChannelIdFromHtml(html);
+    if (channelId) feedUrls.push(youtubeChannelFeedUrl(channelId));
+    if (ref.kind === 'video' && ref.playlistId) feedUrls.push(youtubePlaylistFeedUrl(ref.playlistId));
+  }
+
+  const out: FeedCandidate[] = [];
+  for (const feedUrl of dedupe(feedUrls.map((u) => ({ url: u, source: 'well-known' as const })))) {
+    if (!validate) {
+      out.push(feedUrl);
+      continue;
+    }
+    throwIfAborted(signal);
+    const probe = await probeUrl(feedUrl.url, signal);
+    out.push(
+      probe
+        ? { ...feedUrl, kind: probe.kind, title: probe.title, verified: true }
+        : { ...feedUrl, verified: false },
+    );
+  }
+  // Verified first, so the working feed is the default choice.
+  return [...out.filter((c) => c.verified === true), ...out.filter((c) => c.verified !== true)];
+}
+
+/** Generic HTML page discovery: link tags, feed-looking anchors, platform hints, well-known paths. */
+async function discoverFromPage(
+  url: URL,
+  html: string,
+  finalUrl: string,
+  validate: boolean,
+  opts: DiscoverOptions,
+): Promise<FeedCandidate[]> {
   // Step 4: HTML page -> <link rel=alternate> and feed-looking anchors.
-  const doc = parseHtml(res.text);
-  const base = resolveBase(doc, res.finalUrl);
+  const doc = parseHtml(html);
+  const base = resolveBase(doc, finalUrl);
   const linkCands = collectLinkTags(doc, base);
   const anchorCands = collectAnchors(doc, base);
   const allCands = dedupe([...linkCands, ...anchorCands]);
@@ -96,7 +163,7 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   opts.onProgress?.(2, total, 'Reading links');
 
   // Step 5: platform hints and well-known paths (origin and input path).
-  const wellKnown = dedupe([...platformCandidates(url, res.text), ...wellKnownCandidates(url)]);
+  const wellKnown = dedupe([...platformCandidates(url), ...wellKnownCandidates(url)]);
 
   if (!validate) {
     return dedupe([...linkCands, ...anchorCands, ...wellKnown]);
@@ -224,20 +291,13 @@ function collectAnchors(doc: Document, base: string): FeedCandidate[] {
   return out;
 }
 
-function platformCandidates(input: URL, html: string): FeedCandidate[] {
+function platformCandidates(input: URL): FeedCandidate[] {
   const host = input.hostname.toLowerCase().replace(/^www\./, '');
   const path = input.pathname;
   const urls: string[] = [];
 
-  if (host === 'youtube.com') {
-    const channelId =
-      /^\/channel\/(UC[\w-]+)/.exec(path)?.[1] ??
-      /"channelId":"(UC[\w-]+)"/.exec(html)?.[1] ??
-      /<meta itemprop="channelId" content="(UC[\w-]+)"/.exec(html)?.[1];
-    const user = /^\/user\/([^/?#]+)/.exec(path)?.[1];
-    if (channelId) urls.push(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
-    else if (user) urls.push(`https://www.youtube.com/feeds/videos.xml?user=${user}`);
-  } else if (host === 'reddit.com') {
+  // YouTube is handled by youtubeCandidates (channel, handle, playlist and video pages).
+  if (host === 'reddit.com') {
     const sub = /^\/r\/([^/?#]+)/.exec(path)?.[1];
     if (sub) urls.push(`https://www.reddit.com/r/${sub}/.rss`);
   } else if (host === 'medium.com') {

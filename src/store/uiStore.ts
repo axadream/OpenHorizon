@@ -21,7 +21,14 @@ export const UI_PERSIST_KEYS = ['navCollapsed', 'readerPrefs', 'timelineSort', '
 /** Timeline page size; "Load more" adds one page. */
 export const PAGE_SIZE = 100;
 
-const DIALOGS_CLOSED: DialogSlots = { addFeed: false, settings: false, share: null, changelog: false, articleActions: false };
+const DIALOGS_CLOSED: DialogSlots = {
+  addFeed: false,
+  settings: false,
+  share: null,
+  changelog: false,
+  articleActions: false,
+  watchList: false,
+};
 
 /** Validate a persisted reader prefs object; anything malformed falls back to the defaults. */
 export function sanitizeReaderPrefs(raw: unknown): ReaderPrefs {
@@ -35,6 +42,7 @@ export function sanitizeReaderPrefs(raw: unknown): ReaderPrefs {
     width: r.width === 'narrow' || r.width === 'wide' ? r.width : DEFAULT_READER_PREFS.width,
     images: typeof r.images === 'boolean' ? r.images : DEFAULT_READER_PREFS.images,
     keepScreenOn: typeof r.keepScreenOn === 'boolean' ? r.keepScreenOn : DEFAULT_READER_PREFS.keepScreenOn,
+    embedVideos: typeof r.embedVideos === 'boolean' ? r.embedVideos : DEFAULT_READER_PREFS.embedVideos,
   };
 }
 

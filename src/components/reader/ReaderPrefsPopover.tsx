@@ -71,6 +71,7 @@ export function ReaderPrefsPopover({
   const setPrefs = useUiStore((s) => s.setReaderPrefs);
   const resetPrefs = useUiStore((s) => s.resetReaderPrefs);
   const keepAwakeId = useId();
+  const embedId = useId();
   const wakeLockSupported = isWakeLockSupported();
 
   const setSize = (n: number) => setPrefs({ fontSize: clampSize(n) });
@@ -239,6 +240,17 @@ export function ReaderPrefsPopover({
             </Chip>
           ))}
         </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <span id={embedId} className="text-sm text-silver">
+          {t('prefs.embedVideos')}
+        </span>
+        <Switch
+          checked={prefs.embedVideos}
+          onCheckedChange={(on) => setPrefs({ embedVideos: on })}
+          aria-labelledby={embedId}
+        />
       </div>
 
       {wakeLockSupported ? (

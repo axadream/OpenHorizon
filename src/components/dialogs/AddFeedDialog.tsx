@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FileCode, Globe, Link, Upload } from 'lucide-react';
+import { Bookmark, FileCode, Globe, Link, Upload } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs';
 import { t, useT } from '@/i18n/i18n';
@@ -10,6 +10,7 @@ import { AddByUrlTab } from '@/components/dialogs/tabs/AddByUrlTab';
 import { DiscoverTab } from '@/components/dialogs/tabs/DiscoverTab';
 import { PasteXmlTab } from '@/components/dialogs/tabs/PasteXmlTab';
 import { ImportOpmlTab } from '@/components/dialogs/tabs/ImportOpmlTab';
+import { SavePageTab } from '@/components/dialogs/tabs/SavePageTab';
 
 let sessionSeq = 0;
 
@@ -40,6 +41,9 @@ function AddFeedBody({ initialUrl, initialTab, opmlFile }: AddFeedBodyProps) {
         <Tab value="discover" icon={Globe}>
           {t('add.tabDiscover')}
         </Tab>
+        <Tab value="save" icon={Bookmark}>
+          {t('save.tab')}
+        </Tab>
         <Tab value="xml" icon={FileCode}>
           {t('add.tabXml')}
         </Tab>
@@ -53,6 +57,9 @@ function AddFeedBody({ initialUrl, initialTab, opmlFile }: AddFeedBodyProps) {
       </TabPanel>
       <TabPanel value="discover" className="pt-1">
         <DiscoverTab initialUrl={discoverUrl} notice={notice} />
+      </TabPanel>
+      <TabPanel value="save" className="pt-1">
+        <SavePageTab />
       </TabPanel>
       <TabPanel value="xml" className="pt-1">
         <PasteXmlTab />

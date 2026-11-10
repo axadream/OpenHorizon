@@ -4,6 +4,7 @@ import { FeedAvatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ReaderSkeleton } from '@/components/ui/Skeleton';
+import { FullArticleToggle, type ReaderTextSource } from '@/components/reader/FullArticleToggle';
 import { ReaderContent } from '@/components/reader/ReaderContent';
 import { ReaderToolbar } from '@/components/reader/ReaderToolbar';
 import { markRead, setReadLater } from '@/features/articles/articleActions';
@@ -14,6 +15,7 @@ import { readerPrefsToCssVars } from '@/features/reader/readerPrefs';
 import { share } from '@/features/sharing/share';
 import { t, useT } from '@/i18n/i18n';
 import { cn } from '@/lib/cn';
+import { youTubeVideoIdOf } from '@/lib/youtube';
 import { formatFull } from '@/lib/time';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useWakeLock } from '@/hooks/useWakeLock';
@@ -63,6 +65,8 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   const showImages = prefs.images;
   const setShowImages = (on: boolean) => useUiStore.getState().setReaderPrefs({ images: on });
   const [scrolled, setScrolled] = useState(false);
+  // Which text to show when a full article is stored: the full text by default, per article.
+  const [textSource, setTextSource] = useState<ReaderTextSource>('full');
   const scrollRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -74,6 +78,7 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
     if (!articleId) return;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     setScrolled(false);
+    setTextSource('full');
     const heading = headingRef.current;
     if (!heading) return;
     const active = document.activeElement;
@@ -122,7 +127,10 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
 
   const feed = feeds.get(article.feedId);
   const shareUrl = article.link || feed?.siteUrl || '';
-  const showHero = showImages && !!article.thumbnailUrl && !article.contentRaw.includes(article.thumbnailUrl);
+  // A video article shows its player (with the thumbnail) instead of the hero image.
+  const videoId = youTubeVideoIdOf(article.link);
+  const showHero =
+    showImages && !!article.thumbnailUrl && !article.contentRaw.includes(article.thumbnailUrl) && videoId === null;
   const cssVars = readerPrefsToCssVars(prefs) as CSSProperties;
 
   return (
@@ -184,7 +192,8 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
             ) : null}
           </header>
 
-          <ReaderContent article={article} prefs={prefs} showImages={showImages} />
+          {article.fullContent ? <FullArticleToggle value={textSource} onChange={setTextSource} /> : null}
+          <ReaderContent article={article} prefs={prefs} showImages={showImages} useFull={textSource === 'full'} />
 
           <footer className="mx-auto mt-10 flex max-w-[var(--reader-measure)] flex-wrap items-center gap-2 border-t border-border pt-6">
             {article.link ? (

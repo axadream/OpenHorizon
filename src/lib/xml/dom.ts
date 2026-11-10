@@ -30,6 +30,8 @@ export const NS = {
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   rss1: 'http://purl.org/rss/1.0/',
   itunes: 'http://www.itunes.com/dtds/podcast-1.0.dtd',
+  /** YouTube Atom extensions (yt:videoId, yt:channelId). */
+  yt: 'http://www.youtube.com/xml/schemas/2015',
 } as const;
 
 let env: XmlEnv | null = null;

@@ -39,3 +39,11 @@ export function showFeed(feedId: string): void {
   ui.setView({ type: 'feed', feedId });
   ui.closeDialog('addFeed');
 }
+
+/** Show one article of a list (or feed) in the timeline and reader, and close the add-feed dialog. */
+export function showArticle(feedId: string, articleId: string): void {
+  const ui = useUiStore.getState();
+  ui.setView({ type: 'feed', feedId });
+  ui.selectArticle(articleId, { openOnMobile: true });
+  ui.closeDialog('addFeed');
+}
