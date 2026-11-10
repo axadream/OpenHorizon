@@ -186,16 +186,37 @@ function tagAttr(tag: string, name: string): string | null {
 }
 
 /**
- * Channel id from a channel, handle or video page, tried in order: "channelId" JSON field,
- * "externalId" JSON field, <meta itemprop="channelId">, <link rel="canonical"> with /channel/UC...,
- * then <link rel="alternate"> with /channel/UC.... Returns the first valid id, or null.
+ * Channel id from a channel, handle or video page. Sources are tried from most to least specific:
+ * 1. the page's own RSS link (`<link rel="alternate" type="application/rss+xml" href=".../videos.xml?channel_id=UC...">`),
+ * 2. `<link rel="canonical">` with /channel/UC...,
+ * 3. the "externalId" JSON field, 4. `<meta itemprop="channelId">`, 5. any other alternate link with /channel/UC...,
+ * 6. the first "channelId" JSON field.
+ * The "channelId" field comes last on purpose: a channel page mentions many channels (featured and
+ * related ones) and the first occurrence is often not the page's own channel, while a watch page
+ * lists the uploader first.
  */
 export function extractChannelIdFromHtml(html: string): string | null {
   if (!html) return null;
-  for (const re of [/"channelId":"(UC[\w-]{22})"/, /"externalId":"(UC[\w-]{22})"/]) {
-    const id = re.exec(html)?.[1];
-    if (id && CHANNEL_ID_RE.test(id)) return id;
+  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+  const relOf = (tag: string): string[] => (tagAttr(tag, 'rel') ?? '').toLowerCase().split(/\s+/);
+
+  for (const tag of links) {
+    if (!relOf(tag).includes('alternate')) continue;
+    const href = tagAttr(tag, 'href') ?? '';
+    const id = /videos\.xml\?[^"']*?channel_id=(UC[\w-]{22})(?![\w-])/.exec(href)?.[1];
+    if (id) return id;
   }
+
+  const channelPath = (tag: string): string | undefined =>
+    /\/channel\/(UC[\w-]{22})(?![\w-])/.exec(tagAttr(tag, 'href') ?? '')?.[1];
+  for (const tag of links) {
+    if (!relOf(tag).includes('canonical')) continue;
+    const id = channelPath(tag);
+    if (id) return id;
+  }
+
+  const external = /"externalId":"(UC[\w-]{22})"/.exec(html)?.[1];
+  if (external && CHANNEL_ID_RE.test(external)) return external;
 
   for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
     if ((tagAttr(tag, 'itemprop') ?? '').toLowerCase() !== 'channelid') continue;
@@ -203,15 +224,14 @@ export function extractChannelIdFromHtml(html: string): string | null {
     if (CHANNEL_ID_RE.test(id)) return id;
   }
 
-  const links = html.match(/<link\b[^>]*>/gi) ?? [];
-  for (const relName of ['canonical', 'alternate']) {
-    for (const tag of links) {
-      const rel = (tagAttr(tag, 'rel') ?? '').toLowerCase().split(/\s+/);
-      if (!rel.includes(relName)) continue;
-      const id = /\/channel\/(UC[\w-]{22})(?![\w-])/.exec(tagAttr(tag, 'href') ?? '')?.[1];
-      if (id) return id;
-    }
+  for (const tag of links) {
+    if (!relOf(tag).includes('alternate')) continue;
+    const id = channelPath(tag);
+    if (id) return id;
   }
+
+  const json = /"channelId":"(UC[\w-]{22})"/.exec(html)?.[1];
+  if (json && CHANNEL_ID_RE.test(json)) return json;
   return null;
 }
 

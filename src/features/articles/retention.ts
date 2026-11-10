@@ -19,7 +19,8 @@ export async function pruneTombstones(feedId: string, now: number = Date.now()):
 /**
  * Delete articles of one feed beyond the newest `keep`, never touching read-later or favorite
  * articles, nor articles whose full text was loaded (fullContent: the user asked to keep it
- * readable offline). Unread articles are eligible. Also trims old tombstones.
+ * readable offline), nor articles with a cached AI summary (ai: the work is kept like the text).
+ * Unread articles are eligible. Also trims old tombstones.
  */
 export async function pruneFeed(feedId: string, keep: number): Promise<number> {
   const older = await db.articles
@@ -29,7 +30,7 @@ export async function pruneFeed(feedId: string, keep: number): Promise<number> {
     .offset(keep)
     .toArray();
   const victims = older
-    .filter(a => a.isReadLater === 0 && a.isFavorite === 0 && a.fullContent === undefined)
+    .filter(a => a.isReadLater === 0 && a.isFavorite === 0 && a.fullContent === undefined && a.ai === undefined)
     .map(a => a.id);
   if (victims.length) await db.articles.bulkDelete(victims);
   await pruneTombstones(feedId);

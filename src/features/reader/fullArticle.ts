@@ -25,7 +25,12 @@ export async function loadFullArticle(articleId: string, link: string): Promise<
   try {
     const full = await fetchReadable(link);
     const now = Date.now();
-    await db.articles.update(articleId, { fullContent: full.contentHtml, fullContentAt: now });
+    // A new full text makes any cached AI summary stale: drop it in the same write.
+    await db.articles.where(':id').equals(articleId).modify((a) => {
+      a.fullContent = full.contentHtml;
+      a.fullContentAt = now;
+      delete a.ai;
+    });
     activity.complete(t('reader.fullLoaded'));
   } catch (err) {
     activity.fail(describeLoadError(err).title);

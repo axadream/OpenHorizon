@@ -100,12 +100,20 @@ describe('youTubeVideoIdOf', () => {
 });
 
 describe('extractChannelIdFromHtml', () => {
-  it('reads the channelId JSON field first', () => {
-    const html = `<script>var x = {"channelId":"${CHANNEL}"};</script><meta itemprop="channelId" content="UCaaaaaaaaaaaaaaaaaaaaaa">`;
+  it('prefers the page RSS link over featured channels mentioned in the page JSON', () => {
+    // Regression: a handle page lists many "channelId" fields and the first one was a featured channel.
+    const html = `<link rel="alternate" type="application/rss+xml" title="RSS" href="https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL}">
+      <script>var x = {"channelId":"UCaaaaaaaaaaaaaaaaaaaaaa"},{"channelId":"UCbbbbbbbbbbbbbbbbbbbbbb"};</script>`;
     expect(extractChannelIdFromHtml(html)).toBe(CHANNEL);
   });
 
-  it('falls back to externalId, the meta tag, canonical and alternate links, in that order', () => {
+  it('prefers externalId over the first channelId JSON field, and uses channelId only as the last resort', () => {
+    const featured = `{"channelId":"UCaaaaaaaaaaaaaaaaaaaaaa"}`;
+    expect(extractChannelIdFromHtml(`${featured}{"externalId":"${CHANNEL}"}`)).toBe(CHANNEL);
+    expect(extractChannelIdFromHtml(`<script>var x = {"channelId":"${CHANNEL}"};</script>`)).toBe(CHANNEL);
+  });
+
+  it('falls back to externalId, the meta tag, canonical and alternate links', () => {
     expect(extractChannelIdFromHtml(`{"externalId":"${CHANNEL}"}`)).toBe(CHANNEL);
     expect(extractChannelIdFromHtml(`<meta content="${CHANNEL}" itemprop="channelId">`)).toBe(CHANNEL);
     expect(

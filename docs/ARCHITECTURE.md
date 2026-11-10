@@ -800,3 +800,32 @@ AC: axe DevTools shows zero serious/critical issues on all three panes and every
 | `role="listbox"` for the timeline | `list` + `aria-current` | Selection semantics (↑/↓ selects and opens) map exactly to listbox; single tab stop. Nav uses `list` + `aria-current` because items are navigation targets. |
 | Per-feed unique guid | Global unique guid | Same URL in two feeds must be two independent articles. |
 | No virtualization in v1 | react-window | 100-item pages + `content-visibility: auto` are enough; virtualization complicates `aria-activedescendant` and keyboard focus. Revisit if lists exceed ~1k. |
+
+
+## 15. Version 0.2 additions
+
+**Database.** Schema version 2 adds one table, `deletedArticles` (primary key `[feedId+guid]`), so a deleted article is not re-imported by the next sync. Tombstones are trimmed after 90 days and removed with their feed. Everything else is optional, unindexed fields, so no further migration was needed: `Article.fullContent`, `Article.fullContentAt`, `Article.ai`, `Feed.listKind` (`saved` or `watch`) and the new `Settings` keys (appBadge, storagePersistAskedAt, soundsEnabled, soundVolume and the AI settings).
+
+**Network.** `fetchWithProxy` tries direct, env, local, jina, allorigins-get, allorigins, corsproxy, codetabs and rss2json. Requests are hedged: the next route starts after 2.5 s or on failure, the first success wins and the rest are aborted. rss2json is skipped for HTML pages. `diagnoseFetchError` turns the attempt list into one user-facing cause.
+
+**Modules.**
+
+| Area | Location |
+| --- | --- |
+| Progress and activity bar | `store/activityStore.ts`, `components/layout/ActivityBar.tsx` |
+| Touch gestures | `hooks/useSwipeActions.ts`, `useLongPress.ts`, `usePullToRefresh.ts`, `lib/gesture.ts` |
+| Launch parameters, badge, storage, wake lock | `app/launchParams.ts`, `features/system/*`, `hooks/useWakeLock.ts` |
+| Appearance engine (boot script in `index.html`) | `features/appearance/*` |
+| Chimes | `features/audio/chimes.ts` |
+| i18n (en, ro, ar; RTL) | `i18n/*` |
+| Readability, saved pages, watch lists | `features/reader/readability.ts`, `features/lists/*` |
+| YouTube | `lib/youtube.ts`, `lib/discovery/youtubeSearch.ts`, `components/reader/VideoPlayer.tsx` |
+| AI summaries | `features/ai/*`, see `docs/AI.md` |
+
+**Decisions.**
+- A single click target cannot be both a GitHub link and a drawer opener, so the version number links to GitHub and a neighbouring button opens the release notes.
+- `S` stays Share and `F` stays Favorite. The product brief asked for `s` to star; the existing mapping was kept.
+- `feed://` cannot be registered as a protocol handler by browsers. Only `web+rss:` is registered, and `feed://` typed or pasted into the app is normalised.
+- Swipe right deletes with undo and swipe left toggles Favorite. Both mirror in right-to-left languages.
+- WebLLM and Transformers.js are not bundled (hundreds of MB, WebGPU only). Chrome's built-in Summarizer and local OpenAI-compatible servers cover on-device use.
+- Nothing reachable from `sw.ts` may use dynamic `import()`. Lazy chunks (Readability, AI, ro, ar) are page-only.

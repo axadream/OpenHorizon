@@ -6,8 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
+### Fixed
+
+- YouTube handle pages (such as `@veritasium`) resolved to a featured channel instead of the page's own channel. The channel id now comes from the page's own RSS and canonical links first.
+
 ### Added
 
+- AI summaries (off by default): a Summarize button in the reader and an "AI summary" action on articles show a summary, key takeaways and tags. Chrome's built-in AI runs on the device by default; an offline heuristic is the fallback. Ollama, LM Studio and other OpenAI-compatible servers run locally, and OpenAI, Mistral, DeepSeek, Gemini or a custom endpoint are opt-in cloud providers that need a key and a one-time consent dialog. Results are cached per article. Settings > AI summaries has the provider, privacy badge, endpoint, model, key, instructions and a connection test. AI settings and keys are never exported.
 - Themes: Metallic (the default), OLED black (true black surfaces), Sepia (warm light paper), High contrast (black and white, strong borders, a yellow focus ring) and System (follows the light scheme, and switches to High contrast when more contrast is requested). The browser's theme colour follows the theme.
 - Custom accent colour: pick any colour, type a #rrggbb value, or use one of eight presets. Hover, pressed, focus and soft tints are derived from it, and the text on top of it is black or white, whichever reads better (at least 4.5:1).
 - Fonts: Sans, Serif, Mono and Dyslexic (OpenDyslexic) for the whole interface. The reader's font switch offers the same four. The OpenDyslexic font files (SIL Open Font License) are bundled with the app and cached for offline use.
@@ -67,6 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Folders, OPML import and export, offline reading and notifications.
 - Metallic dark interface.
 
-[Unreleased]: https://github.com/axadream/OpenHorizon/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/axadream/OpenHorizon/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/axadream/OpenHorizon/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/axadream/OpenHorizon/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/axadream/OpenHorizon/releases/tag/v0.1.0

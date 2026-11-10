@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bookmark, Circle, CircleCheck, ExternalLink, ListVideo, Share2, Star, Trash2, type LucideIcon } from 'lucide-react';
+import { Bookmark, Circle, CircleCheck, ExternalLink, ListVideo, Share2, Sparkles, Star, Trash2, type LucideIcon } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Menu, MenuItem } from '@/components/ui/Menu';
 import type { Article } from '@/db/schema';
@@ -12,6 +12,7 @@ import {
 } from '@/features/articles/articleCommands';
 import { useArticle } from '@/features/articles/articleQueries';
 import { useFeedMap } from '@/features/feeds/feedQueries';
+import { useSetting } from '@/features/settings/settings';
 import { share } from '@/features/sharing/share';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { t, useT } from '@/i18n/i18n';
@@ -49,7 +50,7 @@ function report(task: Promise<unknown>, message: string): void {
   task.catch(reportFailure(message));
 }
 
-function buildActions(article: Article, siteUrl: string | undefined): SheetAction[] {
+function buildActions(article: Article, siteUrl: string | undefined, aiEnabled: boolean): SheetAction[] {
   const id = article.id;
   const read = article.isRead === 1;
   const favorite = article.isFavorite === 1;
@@ -101,6 +102,20 @@ function buildActions(article: Article, siteUrl: string | undefined): SheetActio
         if (article.link) window.open(article.link, '_blank', 'noopener,noreferrer');
       }),
     },
+    ...(aiEnabled
+      ? [
+          {
+            key: 'aiSummary',
+            label: t('ai.summaryTitle'),
+            icon: Sparkles,
+            run: then(() => {
+              // Select the article so the reader shows it, then open its summary (AI modules load on demand).
+              useUiStore.getState().selectArticle(id, { openOnMobile: true });
+              void import('@/features/ai/openSummary').then((m) => m.requestAiSummary(id));
+            }),
+          },
+        ]
+      : []),
     ...(youTubeVideoIdOf(article.link)
       ? [
           {
@@ -158,6 +173,7 @@ export function ArticleActionSheet() {
   const article = useArticle(shown?.articleId ?? null);
   const feeds = useFeedMap();
   const feed = article ? feeds.get(article.feedId) : undefined;
+  const aiEnabled = useSetting('aiEnabled');
   const anchorRef = useRef<HTMLSpanElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
@@ -178,7 +194,7 @@ export function ArticleActionSheet() {
     return () => window.clearTimeout(timer);
   }, [open]);
 
-  const actions = article ? buildActions(article, feed?.siteUrl) : [];
+  const actions = article ? buildActions(article, feed?.siteUrl, aiEnabled) : [];
   const onOpenChange = (next: boolean) => {
     if (!next) closeSheet();
   };

@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Bookmark, Circle, CircleCheck, ExternalLink, FileText, List, ListVideo, Maximize2, Minimize2, Share2, Star, Type, ArrowLeft } from 'lucide-react';
+import { Bookmark, Circle, CircleCheck, ExternalLink, FileText, List, ListVideo, Maximize2, Minimize2, Share2, Sparkles, Star, Type, ArrowLeft } from 'lucide-react';
 import { IconButton } from '@/components/ui/IconButton';
 import { ReaderPrefsPopover } from '@/components/reader/ReaderPrefsPopover';
+import { useAiPanelArticleId } from '@/features/ai/aiPanelStore';
 import { markRead, markUnread, setFavorite, setReadLater } from '@/features/articles/articleActions';
+import { useSetting } from '@/features/settings/settings';
 import type { Article, Feed } from '@/db/schema';
 import { describeLoadError, loadFullArticle } from '@/features/reader/fullArticle';
 import { share } from '@/features/sharing/share';
@@ -60,6 +62,8 @@ export function ReaderToolbar({
 }: ReaderToolbarProps) {
   useT();
   const overlayOpen = useTimelineOverlay();
+  const aiEnabled = useSetting('aiEnabled');
+  const aiOpenId = useAiPanelArticleId();
   const [prefsOpen, setPrefsOpen] = useState(false);
   const [loadingFull, setLoadingFull] = useState(false);
   const prefsButtonRef = useRef<HTMLButtonElement>(null);
@@ -154,6 +158,17 @@ export function ReaderToolbar({
             icon={ListVideo}
             size="sm"
             onClick={() => useUiStore.getState().openDialog('watchList', { url: article.link })}
+          />
+        ) : null}
+
+        {aiEnabled ? (
+          <IconButton
+            label={t('ai.summarize')}
+            icon={Sparkles}
+            size="sm"
+            pressed={aiOpenId === article.id}
+            active={aiOpenId === article.id}
+            onClick={() => void import('@/features/ai/openSummary').then((m) => m.toggleAiSummary(article.id))}
           />
         ) : null}
 

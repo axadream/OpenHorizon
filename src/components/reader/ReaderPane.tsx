@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type UIEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type UIEvent } from 'react';
 import { BookOpen, Bookmark, Share2 } from 'lucide-react';
 import { FeedAvatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -7,6 +7,7 @@ import { ReaderSkeleton } from '@/components/ui/Skeleton';
 import { FullArticleToggle, type ReaderTextSource } from '@/components/reader/FullArticleToggle';
 import { ReaderContent } from '@/components/reader/ReaderContent';
 import { ReaderToolbar } from '@/components/reader/ReaderToolbar';
+import { useAiPanelArticleId, useAiPanelStore } from '@/features/ai/aiPanelStore';
 import { markRead, setReadLater } from '@/features/articles/articleActions';
 import { useArticle } from '@/features/articles/articleQueries';
 import { useAppearanceStore } from '@/features/appearance/appearanceStore';
@@ -27,6 +28,9 @@ export const AUTO_READ_MS = 800;
 
 /** Scroll offset after which the toolbar switches from steel to glass. */
 const SCROLLED_THRESHOLD = 8;
+
+/** The AI summary panel is loaded only when it is opened (the AI modules stay out of the reader chunk). */
+const AiSummaryPanel = lazy(() => import('@/components/reader/AiSummaryPanel').then((m) => ({ default: m.AiSummaryPanel })));
 
 export interface ReaderPaneProps {
   className?: string;
@@ -69,8 +73,14 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   const [textSource, setTextSource] = useState<ReaderTextSource>('full');
   const scrollRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const aiArticleId = useAiPanelArticleId();
 
   const articleId = article?.id;
+
+  // The AI summary panel belongs to one article: close it when the reader moves on.
+  useEffect(() => {
+    if (articleId) useAiPanelStore.getState().syncArticle(articleId);
+  }, [articleId]);
 
   // New article: scroll to top and move focus to the heading for screen readers. Desktop keeps
   // focus where it is when it sits in the timeline listbox, so J/K navigation keeps working.
@@ -191,6 +201,12 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
               />
             ) : null}
           </header>
+
+          {aiArticleId === article.id ? (
+            <Suspense fallback={null}>
+              <AiSummaryPanel key={article.id} article={article} />
+            </Suspense>
+          ) : null}
 
           {article.fullContent ? <FullArticleToggle value={textSource} onChange={setTextSource} /> : null}
           <ReaderContent article={article} prefs={prefs} showImages={showImages} useFull={textSource === 'full'} />

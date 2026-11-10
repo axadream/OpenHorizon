@@ -124,6 +124,17 @@ VITE_CORS_PROXY=https://openhorizon-proxy.<account>.workers.dev/api/proxy?url={u
 
 For a GitHub Pages build, add the same value as a repository variable named `VITE_CORS_PROXY` under **Settings → Secrets and variables → Actions → Variables**. The deploy workflow passes it to the build. The `{url}` placeholder is replaced with the encoded feed address.
 
+## AI summaries
+
+Optional, and off until you turn it on in Settings > AI summaries. The reader's **Summarize** button shows a summary, key takeaways and tags for an article.
+
+- **On-device by default**: Chrome's built-in AI (Summarizer and Prompt APIs) runs in your browser, so nothing leaves the device. Where it is not available, an offline heuristic gives lead sentences and keyword tags, and the panel says so.
+- **Local servers**: Ollama, LM Studio or any OpenAI-compatible server on your computer or network. No key needed.
+- **Cloud (opt-in)**: OpenAI, Mistral, DeepSeek, Gemini or a custom endpoint, with your API key. Before the first request a dialog lists exactly what is sent and to which host. Nothing is sent before you accept, and the key is kept for this tab only unless you choose to remember it.
+- Results are cached on the article, and exports never include AI settings or keys.
+
+WebLLM and Transformers.js are not bundled (large model downloads and WebGPU requirements). See `docs/AI.md` for the architecture, privacy classes, the Ollama `OLLAMA_ORIGINS` setup and the Chrome requirements.
+
 ## YouTube support
 
 What works:

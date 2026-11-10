@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
 import { t, useT } from '@/i18n/i18n';
 import { useDialog } from '@/store/selectors';
@@ -9,6 +9,9 @@ import { DataSettings } from './settings/DataSettings';
 import { NotificationSettings } from './settings/NotificationSettings';
 import { SoundSettings } from './settings/SoundSettings';
 import { SyncSettings } from './settings/SyncSettings';
+
+/* AI settings pull in the AI modules, so they load only when the dialog opens (page code, never sw.ts). */
+const AiSettings = lazy(() => import('./settings/AiSettings').then((m) => ({ default: m.AiSettings })));
 
 function SettingsBody({ section }: { section?: string }) {
   useEffect(() => {
@@ -22,6 +25,9 @@ function SettingsBody({ section }: { section?: string }) {
       <NotificationSettings />
       <AppearanceSettings />
       <SoundSettings />
+      <Suspense fallback={null}>
+        <AiSettings />
+      </Suspense>
       <DataSettings />
       <AppSettings />
     </div>

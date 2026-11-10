@@ -12,4 +12,12 @@ export const DEFAULT_SETTINGS: Settings = {
   storagePersistAskedAt: null,
   soundsEnabled: false,
   soundVolume: 40,
+  aiEnabled: false,
+  aiProvider: 'chrome-builtin',
+  aiBaseUrl: '',
+  aiModel: '',
+  aiInstructions: '',
+  aiRememberKey: false,
+  aiApiKey: '',
+  aiCloudConsent: {},
 };
