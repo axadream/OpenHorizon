@@ -8,4 +8,6 @@ export const DEFAULT_SETTINGS: Settings = {
   lastSyncAt: null,
   onboardingDone: false,
   installDismissedAt: null,
+  appBadge: true,
+  storagePersistAskedAt: null,
 };

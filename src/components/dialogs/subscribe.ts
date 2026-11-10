@@ -1,16 +1,17 @@
 import type { Feed } from '@/db/schema';
 import { runSyncFromPage } from '@/features/sync/scheduler';
 import { toast } from '@/lib/toast';
+import { withWebScheme } from '@/lib/url';
 import { useUiStore } from '@/store/uiStore';
 
 /**
- * Validate a user-typed web address. Adds https:// when no scheme is given.
- * Returns the http(s) URL, or null when the input is empty or not a web address.
+ * Validate a user-typed web address. feed:// and web+rss: prefixes are unwrapped and https://
+ * is added when no scheme is given. Returns the http(s) URL, or null when the input is empty
+ * or not a web address.
  */
 export function toHttpUrl(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const withScheme = withWebScheme(input);
+  if (!withScheme) return null;
   try {
     const u = new URL(withScheme);
     return u.protocol === 'http:' || u.protocol === 'https:' ? withScheme : null;

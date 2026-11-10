@@ -267,6 +267,35 @@
   user-select: none;
 }
 
+/*
+ * Window Controls Overlay (installed desktop app). The app window draws its own titlebar: the caption
+ * buttons sit over the top strip, so the strip is a drag region and the app content starts below it.
+ * Everything is inside the media query: normal tabs and standalone mode keep the same layout.
+ * The `.wco-titlebar` element is rendered by AppShell and hidden by default.
+ */
+.wco-titlebar {
+  display: none;
+}
+
+@media (display-mode: window-controls-overlay) {
+  .wco-shell {
+    padding-top: env(titlebar-area-height, 0px);
+    box-sizing: border-box;
+  }
+  .wco-titlebar {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 0px);
+    z-index: 1;
+    -webkit-app-region: drag;
+    app-region: drag;
+    background: var(--color-bg);
+  }
+}
+
 /* Reduced motion (DESIGN 3.3) and contrast (DESIGN 8.3). Unlayered so they win over theme tokens. */
 @media (prefers-reduced-motion: reduce) {
   :root {

@@ -4,6 +4,7 @@ import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
+import { refreshAppBadgeFromDb } from '@/features/system/badge';
 import { syncAll } from '@/features/sync/syncAll';
 import { FEED_SYNC_ONCE_TAG, FEED_SYNC_TAG, type PageToSw, type SwToPage } from '@/features/sync/protocol';
 import { setXmlEnv } from '@/lib/xml/dom';
@@ -46,6 +47,8 @@ async function swSync(): Promise<void> {
   await postToAllClients({ type: 'SYNC_STARTED', origin: 'sw' });
   // syncAll also shows the notifications for new articles in favorite feeds (origin 'sw').
   const result = await syncAll({ origin: 'sw' });
+  // Best effort: the app icon badge follows the new unread count even when no page is open.
+  await refreshAppBadgeFromDb().catch(() => undefined);
   await postToAllClients({
     type: 'SYNC_COMPLETE',
     origin: 'sw',

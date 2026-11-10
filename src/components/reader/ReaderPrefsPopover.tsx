@@ -1,9 +1,11 @@
-import type { KeyboardEvent, RefObject } from 'react';
+import { useId, type KeyboardEvent, type RefObject } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { IconButton } from '@/components/ui/IconButton';
 import { Popover } from '@/components/ui/Popover';
+import { Switch } from '@/components/ui/Switch';
+import { isWakeLockSupported } from '@/hooks/useWakeLock';
 import {
   FONT_FAMILIES,
   FONT_SIZES,
@@ -59,6 +61,8 @@ export function ReaderPrefsPopover({
   const prefs = useReaderPrefs();
   const setPrefs = useUiStore((s) => s.setReaderPrefs);
   const resetPrefs = useUiStore((s) => s.resetReaderPrefs);
+  const keepAwakeId = useId();
+  const wakeLockSupported = isWakeLockSupported();
 
   const setSize = (n: number) => setPrefs({ fontSize: clampSize(n) });
   const onSliderKey = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -227,6 +231,19 @@ export function ReaderPrefsPopover({
           ))}
         </div>
       </div>
+
+      {wakeLockSupported ? (
+        <div className="flex items-center justify-between gap-3">
+          <span id={keepAwakeId} className="text-sm text-silver">
+            Keep screen on while reading
+          </span>
+          <Switch
+            checked={prefs.keepScreenOn}
+            onCheckedChange={(on) => setPrefs({ keepScreenOn: on })}
+            aria-labelledby={keepAwakeId}
+          />
+        </div>
+      ) : null}
 
       <div className="flex justify-end">
         <Button

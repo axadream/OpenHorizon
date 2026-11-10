@@ -24,6 +24,7 @@ export interface KeymapEntry {
 export const KEYMAP: readonly KeymapEntry[] = [
   { keys: ['J', '↓'], label: 'Next article' },
   { keys: ['K', '↑'], label: 'Previous article' },
+  { keys: ['Home', 'End'], label: 'First / last article (timeline list)' },
   { keys: ['Enter', 'O'], label: 'Open selected article (mobile: reader)' },
   { keys: ['←', '→'], label: 'Move focus between panes' },
   { keys: ['M'], label: 'Toggle read' },

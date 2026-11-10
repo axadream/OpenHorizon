@@ -32,6 +32,7 @@ export function sanitizeReaderPrefs(raw: unknown): ReaderPrefs {
     font: r.font === 'serif' || r.font === 'sans' ? r.font : DEFAULT_READER_PREFS.font,
     width: r.width === 'narrow' || r.width === 'wide' ? r.width : DEFAULT_READER_PREFS.width,
     images: typeof r.images === 'boolean' ? r.images : DEFAULT_READER_PREFS.images,
+    keepScreenOn: typeof r.keepScreenOn === 'boolean' ? r.keepScreenOn : DEFAULT_READER_PREFS.keepScreenOn,
   };
 }
 

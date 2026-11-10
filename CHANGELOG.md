@@ -10,12 +10,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Activity bar: a slim progress strip at the top of the screen shows feed imports, feed additions and syncs, with counts and percentages.
 - The version number in Settings links to the project on GitHub, and a "What's new" button opens these release notes.
+- Installed app integration: a share target (share a link from another app to add a feed), app shortcuts for Add feed, Unread and Favorites, an OPML file handler, and a `web+rss:` protocol handler. The manifest also declares an app id, categories, language and text direction.
+- Launch links: `?feed=`, share links (`?url=`, `?text=`, `?title=`), `?action=add` and `?view=unread` / `?view=favorites` open the matching dialog or view, then clear the address bar.
+- Add feed and Discover accept `feed://`, `feed:https://` and `web+rss:` addresses and convert them to https.
+- App icon badge: the installed app icon shows the unread count, updated after reading and after background syncs. Switch it off in Settings → Notifications; the switch is disabled where the browser has no Badging API.
+- Storage: the app asks the browser for persistent storage (at most once every 14 days). Settings → Data shows Persistent or Best effort, the space in use, and a Request persistence button.
+- Keep screen on while reading: an article open in the reader keeps the screen awake. On by default, switch in Reading preferences, hidden where the browser has no Screen Wake Lock API.
+- Window Controls Overlay: an installed desktop app draws its title bar with the window buttons on top of it, and the content starts below.
+- Gestures: swipe right on an article to delete it (with undo), swipe left to toggle its favorite, long press for the article action sheet with haptic feedback, and pull to refresh the timeline.
 
 ### Changed
 
 - Feed syncs report progress as "Syncing feed X of Y".
 - Adding a feed by URL reports each step: checking the address, fetching, reading and saving.
 - OPML imports start their article sync through the same path as a manual refresh, so it shows as its own activity.
+- The keyboard shortcut list in Settings is generated from the hotkey table, and now includes Delete, Menu / Shift+F10 and Home / End.
+- The Import OPML count and button only include feeds that are not already subscribed.
 
 ### Fixed
 

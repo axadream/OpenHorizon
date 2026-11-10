@@ -15,6 +15,8 @@ export interface ReaderPrefs {
   width: 'narrow' | 'wide';
   /** Show images and media in the article body and the hero image. */
   images: boolean;
+  /** Hold a screen wake lock while an article is open in the reader (where the browser supports it). */
+  keepScreenOn: boolean;
 }
 
 export const DEFAULT_READER_PREFS: ReaderPrefs = {
@@ -23,6 +25,7 @@ export const DEFAULT_READER_PREFS: ReaderPrefs = {
   font: 'serif',
   width: 'narrow',
   images: true,
+  keepScreenOn: true,
 };
 
 /** Inline CSS custom properties consumed by .reader-content (reader.css). */

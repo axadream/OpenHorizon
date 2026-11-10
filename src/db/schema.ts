@@ -68,6 +68,10 @@ export interface Settings {
   lastSyncAt: number | null;
   onboardingDone: boolean;
   installDismissedAt: number | null;
+  /** Show the unread count on the installed app icon (Badging API, where supported). */
+  appBadge: boolean;
+  /** When the app last asked the browser for persistent storage (retried at most every 14 days). */
+  storagePersistAskedAt: number | null;
 }
 
 /**

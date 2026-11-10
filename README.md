@@ -58,6 +58,39 @@ OpenHorizon runs in any modern browser, and you can add it to your home screen l
 - **Android (Chrome, Edge or Brave)**: tap the install banner when it appears, or open the **⋮** menu and choose **Install app** or **Add to Home screen**.
 - **Desktop (Chrome or Edge)**: click the install icon in the address bar.
 
+## Installing & OS integration
+
+An installed OpenHorizon connects to the operating system where the browser supports it. Each integration is optional and feature-detected, so a browser without it simply does not show it. Support changes between browser releases; check your browser's documentation for the latest status.
+
+| Integration | What it does | Where it works |
+| --- | --- | --- |
+| Share target | Share a link from another app to OpenHorizon. It opens **Add feed** on the Discover tab, which finds the feed on that page, or checks the link if it is already a feed. | Chromium (Chrome, Edge) on Android and ChromeOS, installed. Not iOS Safari or Firefox. |
+| App shortcuts | Long-press or right-click the app icon for **Add feed**, **Unread** and **Favorites**. | Chromium when installed. Not Safari or Firefox. |
+| OPML file handler | Open a `.opml` or `.xml` file with OpenHorizon. The **Import OPML** tab opens with the file loaded. | Chromium desktop (Windows, macOS, ChromeOS, Linux), installed. Not Android, iOS or Firefox. |
+| `web+rss:` protocol handler | Links such as `web+rss:https://example.com/feed.xml` open **Add feed** with the address filled in. | Chromium when installed. Only the `web+rss` scheme can be registered. |
+| App icon badge | The installed app icon shows the unread count. Turn it off in **Settings → Notifications → App icon badge**. | Where the Badging API exists: Chromium on desktop, installed; Safari 16.4 or later for apps added to the iOS and iPadOS Home Screen. Otherwise the switch is disabled and explains why. |
+| Keep screen on | While an article is open in the reader the screen stays awake. Turn it off in **Reading preferences**. On phones it applies only while the reader is showing. | Browsers with the Screen Wake Lock API (Chromium, Safari 16.4 or later, Firefox). Otherwise the option is hidden. |
+| Window Controls Overlay | An installed desktop app draws its own title bar. The window buttons sit over that bar, which drags the window, and the content starts below it. | Chromium desktop (Windows, macOS, ChromeOS, Linux), installed. Normal tabs and mobile layouts are unchanged. |
+
+### Why `web+rss:` and not `feed:`
+
+Browsers do not let a web page register the `feed:` scheme, so OpenHorizon registers `web+rss:`. Links that arrive as text in the app are converted, however they are written: `feed://example.com/feed.xml` and `feed:https://example.com/feed.xml` (pasted, shared, or typed into **Add feed**) both become `https://` addresses.
+
+### Launch links
+
+These query parameters are read when the app opens, then removed from the address bar. They are what the share target, shortcuts and protocol handler send.
+
+| Parameter | Result |
+| --- | --- |
+| `?feed=<address>` | Add feed, URL tab, filled in |
+| `?url=`, `?text=`, `?title=` | Share: the first web link is used. Add feed opens on the Discover tab and searches it. |
+| `?action=add` | Add feed |
+| `?view=unread` or `?view=favorites` | Opens that smart view |
+
+### Storage
+
+The app asks the browser to keep its data (persistent storage), at most once every 14 days. **Settings → Data** shows whether storage is **Persistent** or **Best effort**, the space in use, and a **Request persistence** button while it is not persistent. Browsers may still evict best-effort data when the disk is short.
+
 ## Feeds and CORS
 
 Browsers block most feed requests made across websites (CORS), so OpenHorizon has to fetch feeds through a route that allows them. It tries each route in order and stops at the first one that works:
@@ -90,6 +123,7 @@ For a GitHub Pages build, add the same value as a repository variable named `VIT
 | --- | --- |
 | `J` or `↓` | Next article |
 | `K` or `↑` | Previous article |
+| `Home` / `End` | First / last article (timeline list) |
 | `Enter` or `O` | Open selected article (mobile: reader) |
 | `←` / `→` | Move focus between panes |
 | `M` | Toggle read |
@@ -97,6 +131,8 @@ For a GitHub Pages build, add the same value as a repository variable named `VIT
 | `F` | Toggle favorite |
 | `S` | Share article |
 | `V` | Open original in a new tab |
+| `Delete` | Delete article (undo available) |
+| `Menu` or `Shift+F10` | Article actions (same sheet as a long press) |
 | `R` | Refresh all feeds |
 | `Shift+R` | Refresh current feed |
 | `A` | Add feed |
@@ -108,7 +144,7 @@ For a GitHub Pages build, add the same value as a repository variable named `VIT
 | `?` | Keyboard shortcuts (Settings, App section) |
 | `Esc` | Close, exit fullscreen, go back a pane, clear search |
 
-Shortcuts are ignored while you type in a text field or while a dialog is open. `Esc` always works.
+Shortcuts are ignored while you type in a text field or while a dialog is open. `Esc` always works. The list in **Settings → App** is generated from the same table as the hotkeys (`KEYMAP` in `src/hooks/useKeyboardShortcuts.ts`), so the two cannot drift apart.
 
 ## Developer setup
 

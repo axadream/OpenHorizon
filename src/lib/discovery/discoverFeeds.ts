@@ -1,6 +1,6 @@
 import { parseFeed } from '@/lib/parser/parseFeed';
 import type { FeedKind } from '@/lib/parser/types';
-import { normalizeFeedUrl, resolveUrl } from '@/lib/url';
+import { normalizeFeedUrl, resolveUrl, withWebScheme } from '@/lib/url';
 import { parseHtml } from '@/lib/xml/dom';
 import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
 
@@ -136,11 +136,9 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
 }
 
 function toUrl(input: string): URL {
-  const trimmed = input.trim();
-  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   let u: URL;
   try {
-    u = new URL(withScheme);
+    u = new URL(withWebScheme(input));
   } catch {
     throw new Error('Enter a valid web address');
   }

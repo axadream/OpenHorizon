@@ -13,11 +13,14 @@ import { db } from '@/db/db';
 import { OPEN_ARTICLE_EVENT } from '@/features/sync/protocol';
 import { useSyncScheduler } from '@/features/sync/scheduler';
 import { useServiceWorkerBridge } from '@/features/sync/swBridge';
+import { useAppBadge } from '@/hooks/useAppBadge';
 import { useBootUrl } from '@/hooks/useBootUrl';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useLaunchParams } from '@/hooks/useLaunchParams';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMobileHistory } from '@/hooks/useMobileHistory';
+import { useStoragePersistence } from '@/features/system/storage';
 import { cn } from '@/lib/cn';
 import { toast } from '@/lib/toast';
 import { useMobilePane, useReaderFullscreen } from '@/store/selectors';
@@ -61,8 +64,11 @@ export function AppShell() {
   useSyncScheduler();
   useServiceWorkerBridge();
   useBootUrl();
+  useLaunchParams();
   useMobileHistory();
   useKeyboardShortcuts();
+  useAppBadge();
+  useStoragePersistence();
 
   // Notification clicks (relayed by the service worker) open the article in the reader.
   useEffect(() => {
@@ -107,7 +113,7 @@ export function AppShell() {
       <SkipLink />
       <div
         className={cn(
-          'relative h-dvh overflow-hidden bg-bg',
+          'wco-shell relative h-dvh overflow-hidden bg-bg',
           !isMobile &&
             'grid grid-rows-[minmax(0,1fr)] transition-[grid-template-columns] duration-[var(--duration-slow)] ease-standard motion-reduce:transition-none',
         )}
@@ -131,6 +137,8 @@ export function AppShell() {
           />
         </main>
       </div>
+      {/* Window Controls Overlay drag strip (installed desktop app only; hidden everywhere else, see theme.css). */}
+      <div aria-hidden="true" className="wco-titlebar" />
 
       <BottomNav />
       <ShareSheet />

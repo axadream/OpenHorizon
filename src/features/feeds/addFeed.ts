@@ -6,7 +6,7 @@ import type { OpmlResult } from '@/lib/opml/parseOpml';
 import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
 import { parseFeed } from '@/lib/parser/parseFeed';
 import type { ParsedFeed } from '@/lib/parser/types';
-import { hostname, normalizeFeedUrl } from '@/lib/url';
+import { hostname, normalizeFeedUrl, withWebScheme } from '@/lib/url';
 import { initialFaviconUrl } from './favicon';
 import { createFolder } from './folders';
 
@@ -29,11 +29,6 @@ export interface AddFeedOptions {
   folderId?: string | null;
   signal?: AbortSignal;
   onProgress?: (step: AddFeedStep) => void;
-}
-
-function withScheme(input: string): string {
-  const t = input.trim();
-  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
 async function assertNotSubscribed(url: string): Promise<void> {
@@ -84,7 +79,7 @@ async function insertFeed(feed: Feed): Promise<Feed> {
  * parser's NotAFeedError (or FetchAllFailedError) when the URL is not a usable feed.
  */
 export async function addFeedFromUrl(input: string, opts: AddFeedOptions = {}): Promise<Feed> {
-  const requested = normalizeFeedUrl(withScheme(input));
+  const requested = normalizeFeedUrl(withWebScheme(input));
   opts.onProgress?.('checking');
   await assertNotSubscribed(requested);
 

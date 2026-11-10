@@ -14,7 +14,8 @@ import { share } from '@/features/sharing/share';
 import { cn } from '@/lib/cn';
 import { formatFull } from '@/lib/time';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useReaderFullscreen, useReaderPrefs, useSelectedArticleId } from '@/store/selectors';
+import { useWakeLock } from '@/hooks/useWakeLock';
+import { useMobilePane, useReaderFullscreen, useReaderPrefs, useSelectedArticleId } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 
 /** Delay before an opened unread article is marked read (DESIGN §6.4). */
@@ -50,6 +51,10 @@ export function ReaderPane({ className, 'data-state': dataState, inert }: Reader
   const prefs = useReaderPrefs();
   const fullscreen = useReaderFullscreen();
   const isMobile = useIsMobile();
+  const mobilePane = useMobilePane();
+
+  // Keep the screen on while an article is open in the reader. On mobile only when the reader pane is showing.
+  useWakeLock(selectedId !== null && prefs.keepScreenOn && (!isMobile || mobilePane === 'reader'));
 
   const showImages = prefs.images;
   const setShowImages = (on: boolean) => useUiStore.getState().setReaderPrefs({ images: on });

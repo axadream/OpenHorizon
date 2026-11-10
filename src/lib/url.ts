@@ -64,6 +64,32 @@ export function normalizeFeedUrl(url: string): string {
   }
 }
 
+/**
+ * Feed-reader scheme prefixes that browsers hand over or users paste: `feed://host/path`,
+ * `feed:https://host/path`, `rss:host/path` and `web+rss:https://host/path`. Returns the
+ * underlying web address (https is assumed when the scheme does not say), or the input
+ * trimmed unchanged when it has no such prefix. '' when nothing is left after the prefix.
+ */
+export function unwrapFeedScheme(input: string): string {
+  const trimmed = input.trim();
+  const m = /^(?:web\+rss|feed|rss):(\/\/)?/i.exec(trimmed);
+  if (!m) return trimmed;
+  const rest = trimmed.slice(m[0].length).trim();
+  if (!rest) return '';
+  if (/^https?:\/\//i.test(rest)) return rest;
+  return `https://${rest.replace(/^\/+/, '')}`;
+}
+
+/**
+ * User-typed web address normalised for the add-feed fields: feed-scheme prefixes are unwrapped,
+ * and https:// is added when no scheme is given. Returns '' for empty input. Validity is not checked here.
+ */
+export function withWebScheme(input: string): string {
+  const t = unwrapFeedScheme(input);
+  if (!t || /^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
 /** Article link normalization: removes #fragment and utm_* params. */
 export function normalizeArticleUrl(url: string): string {
   const raw = url.trim();

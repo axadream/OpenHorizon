@@ -4,7 +4,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { Tab, TabList, TabPanel, Tabs } from '@/components/ui/Tabs';
 import { useDialog } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
-import type { AddFeedTab } from '@/store/types';
+import type { AddFeedTab, OpmlFilePayload } from '@/store/types';
 import { AddByUrlTab } from '@/components/dialogs/tabs/AddByUrlTab';
 import { DiscoverTab } from '@/components/dialogs/tabs/DiscoverTab';
 import { PasteXmlTab } from '@/components/dialogs/tabs/PasteXmlTab';
@@ -15,10 +15,11 @@ let sessionSeq = 0;
 interface AddFeedBodyProps {
   initialUrl?: string;
   initialTab: AddFeedTab;
+  opmlFile?: OpmlFilePayload;
 }
 
 /** Remounted on every open (via `key`), so each open starts from the payload. */
-function AddFeedBody({ initialUrl, initialTab }: AddFeedBodyProps) {
+function AddFeedBody({ initialUrl, initialTab, opmlFile }: AddFeedBodyProps) {
   const [tab, setTab] = useState<AddFeedTab>(initialTab);
   const [discoverUrl, setDiscoverUrl] = useState(initialTab === 'discover' ? (initialUrl ?? '') : '');
   const [notice, setNotice] = useState<string | undefined>(undefined);
@@ -56,7 +57,7 @@ function AddFeedBody({ initialUrl, initialTab }: AddFeedBodyProps) {
         <PasteXmlTab />
       </TabPanel>
       <TabPanel value="opml" className="pt-1">
-        <ImportOpmlTab />
+        <ImportOpmlTab initialFile={opmlFile} />
       </TabPanel>
     </Tabs>
   );
@@ -78,7 +79,12 @@ export function AddFeedDialog() {
       title="Add feed"
     >
       {payload === false ? null : (
-        <AddFeedBody key={session} initialUrl={payload.initialUrl} initialTab={payload.tab ?? 'url'} />
+        <AddFeedBody
+          key={session}
+          initialUrl={payload.initialUrl}
+          initialTab={payload.tab ?? 'url'}
+          opmlFile={payload.opmlFile}
+        />
       )}
     </Dialog>
   );

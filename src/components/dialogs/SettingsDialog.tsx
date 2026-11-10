@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Bell, Check, CheckCheck, Download, ExternalLink, Info, Keyboard, Rows3, Rows4, RefreshCw, ScrollText, Trash2, Upload, type LucideIcon } from 'lucide-react';
+import { Bell, Check, CheckCheck, Download, ExternalLink, Info, Keyboard, Rows3, Rows4, RefreshCw, ScrollText, ShieldCheck, Trash2, Upload, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { Dialog } from '@/components/ui/Dialog';
@@ -9,8 +9,12 @@ import { db } from '@/db/db';
 import type { Settings } from '@/db/schema';
 import { markAllRead, undoMarkAllRead } from '@/features/articles/articleActions';
 import { setSetting, useSetting } from '@/features/settings/settings';
+import { isAppBadgeSupported } from '@/features/system/badge';
+import { requestStoragePersistence, useStorageStatus } from '@/features/system/storage';
 import { runSyncFromPage, useSyncStatus, type PeriodicState } from '@/features/sync/scheduler';
+import { KEYMAP } from '@/hooks/useKeyboardShortcuts';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { formatBytes } from '@/lib/bytes';
 import { exportOpml } from '@/lib/opml/exportOpml';
 import { toast } from '@/lib/toast';
 import { formatFull } from '@/lib/time';
@@ -48,29 +52,6 @@ const PERIODIC_TEXT: Record<PeriodicState, string> = {
   denied: 'Install the app to enable',
   unsupported: 'Not supported in this browser',
 };
-
-const SHORTCUTS: { keys: string[]; label: string }[] = [
-  { keys: ['↓', 'J'], label: 'Next article' },
-  { keys: ['↑', 'K'], label: 'Previous article' },
-  { keys: ['Enter', 'O'], label: 'Open article (mobile: in reader)' },
-  { keys: ['→'], label: 'Focus the pane on the right' },
-  { keys: ['←'], label: 'Focus the pane on the left' },
-  { keys: ['M'], label: 'Toggle read / unread' },
-  { keys: ['L'], label: 'Toggle Read Later' },
-  { keys: ['F'], label: 'Toggle favorite' },
-  { keys: ['S'], label: 'Share article' },
-  { keys: ['V'], label: 'Open original in new tab' },
-  { keys: ['R'], label: 'Refresh all feeds (Shift+R: current feed)' },
-  { keys: ['A'], label: 'Add feed' },
-  { keys: ['/'], label: 'Search' },
-  { keys: ['Shift+A'], label: 'Mark all read in current view' },
-  { keys: ['Shift+F'], label: 'Toggle reader fullscreen' },
-  { keys: [','], label: 'Open settings' },
-  { keys: ['?'], label: 'Keyboard shortcuts' },
-  { keys: ['1–4'], label: 'Smart views: All, Unread, Favorites, Read Later' },
-  { keys: ['Esc'], label: 'Close dialog, popover or menu' },
-  { keys: ['Home', 'End'], label: 'First / last article' },
-];
 
 interface ChoiceOption<T extends string> {
   value: T;
@@ -304,7 +285,33 @@ function NotificationsSection() {
           Send test notification
         </Button>
       </Row>
+
+      <AppBadgeRow />
     </Section>
+  );
+}
+
+/** Unread count on the installed app icon. Disabled with an explanation where the Badging API is missing. */
+function AppBadgeRow() {
+  const appBadge = useSetting('appBadge');
+  const supported = isAppBadgeSupported();
+  const badgeLabelId = useId();
+  return (
+    <Row
+      label={<span id={badgeLabelId}>App icon badge</span>}
+      hint={
+        supported
+          ? 'Shows the unread count on the installed app icon.'
+          : 'Not supported in this browser. Install the app on a system that shows badges.'
+      }
+    >
+      <Switch
+        checked={appBadge && supported}
+        disabled={!supported}
+        onCheckedChange={(next) => save('appBadge', next)}
+        aria-labelledby={badgeLabelId}
+      />
+    </Row>
   );
 }
 
@@ -321,6 +328,44 @@ function AppearanceSection() {
         <ChoiceGroup label="Density" value={density} options={DENSITY_OPTIONS} onChange={(v) => save('density', v)} />
       </Row>
     </Section>
+  );
+}
+
+/** Persistence state and usage. Best effort means the browser may evict data under storage pressure. */
+function StorageRow() {
+  const status = useStorageStatus();
+  const [requesting, setRequesting] = useState(false);
+
+  const usageText =
+    status.usage === null
+      ? 'Usage is not reported by this browser'
+      : status.quota === null
+        ? `Using ${formatBytes(status.usage)}`
+        : `Using ${formatBytes(status.usage)} of ${formatBytes(status.quota)}`;
+
+  async function request(): Promise<void> {
+    setRequesting(true);
+    try {
+      const granted = await requestStoragePersistence();
+      if (granted) toast.success('Storage is now persistent');
+      else toast.info('The browser keeps storage as best effort for now');
+    } catch (err) {
+      toast.error("Couldn't request persistent storage", { description: errorText(err) });
+    } finally {
+      setRequesting(false);
+      status.refresh();
+    }
+  }
+
+  return (
+    <Row label="Storage" hint={usageText}>
+      <span className="text-sm text-silver">{status.persisted ? 'Persistent' : 'Best effort'}</span>
+      {status.persisted ? null : (
+        <Button variant="ghost" size="sm" leadingIcon={ShieldCheck} loading={requesting} onClick={() => void request()}>
+          Request persistence
+        </Button>
+      )}
+    </Row>
   );
 }
 
@@ -405,6 +450,8 @@ function DataSection() {
         </Button>
       </div>
 
+      <StorageRow />
+
       <Row label="Delete all data" hint="Removes feeds, folders, articles and settings from this browser. This cannot be undone.">
         <Button variant="danger" size="sm" leadingIcon={Trash2} loading={deleting} onClick={onDeleteClick}>
           {confirming ? 'Confirm delete' : 'Delete all data'}
@@ -463,7 +510,7 @@ function AppSection() {
         </Button>
         {showShortcuts ? (
           <dl id={shortcutsId} className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-2 text-sm">
-            {SHORTCUTS.map((s) => (
+            {KEYMAP.map((s) => (
               <div key={s.label} className="contents">
                 <dt className="flex flex-wrap gap-1">
                   {s.keys.map((k) => (

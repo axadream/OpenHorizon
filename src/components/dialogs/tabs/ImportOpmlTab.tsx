@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type DragEvent } from 'react';
 import { AlertTriangle, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
@@ -11,6 +11,12 @@ import { parseOpml, type OpmlFeed, type OpmlResult } from '@/lib/opml/parseOpml'
 import { normalizeFeedUrl } from '@/lib/url';
 import { activityPercent, startActivity } from '@/store/activityStore';
 import { useUiStore } from '@/store/uiStore';
+import type { OpmlFilePayload } from '@/store/types';
+
+export interface ImportOpmlTabProps {
+  /** An OPML file already in hand (OS file handler launch): loaded once when the tab mounts. */
+  initialFile?: OpmlFilePayload;
+}
 
 interface FolderGroup {
   /** Folder name, or '' for feeds outside any folder. */
@@ -45,7 +51,7 @@ function importLabel(done: number, total: number): string {
   return `Importing feed ${done} of ${total} (${pct}%)`;
 }
 
-export function ImportOpmlTab() {
+export function ImportOpmlTab({ initialFile }: ImportOpmlTabProps = {}) {
   const uid = useId();
   const dropId = `${uid}-drop`;
   const fetchId = `${uid}-fetch`;
@@ -66,24 +72,42 @@ export function ImportOpmlTab() {
 
   const isSubscribed = (xmlUrl: string): boolean => subscribed.has(normalizeFeedUrl(xmlUrl));
 
-  async function loadFile(file: File): Promise<void> {
+  /** Parses OPML text and pre-selects every feed that is not already subscribed. */
+  function loadText(name: string, text: string): void {
     setError(null);
     try {
-      const result = parseOpml(await file.text());
+      const result = parseOpml(text);
       if (result.feeds.length === 0) {
         setParsed(null);
         setError('No feeds found in this file.');
         return;
       }
       setParsed(result);
-      setFileName(file.name);
-      // Pre-select everything that is not already subscribed.
+      setFileName(name);
       setSelected(new Set(result.feeds.filter((f) => !isSubscribed(f.xmlUrl)).map((f) => f.xmlUrl)));
     } catch (err) {
       setParsed(null);
       setError(err instanceof Error ? err.message : 'Could not read this file.');
     }
   }
+
+  async function loadFile(file: File): Promise<void> {
+    let text: string;
+    try {
+      text = await file.text();
+    } catch (err) {
+      setParsed(null);
+      setError(err instanceof Error ? err.message : 'Could not read this file.');
+      return;
+    }
+    loadText(file.name, text);
+  }
+
+  // Preload a file handed over by the launch queue. The tab stays mounted (hidden) across tab switches.
+  useEffect(() => {
+    if (initialFile) loadText(initialFile.name, initialFile.text);
+    // loadText only uses state setters and the subscribed set captured on mount.
+  }, [initialFile]);
 
   function onDrop(e: DragEvent<HTMLButtonElement>): void {
     e.preventDefault();
@@ -101,15 +125,18 @@ export function ImportOpmlTab() {
     });
   }
 
+  // Selected feeds that are not subscribed yet (already subscribed ones are skipped by the import anyway).
+  const importable = parsed ? parsed.feeds.filter((f) => selected.has(f.xmlUrl) && !isSubscribed(f.xmlUrl)) : [];
+
   async function runImport(): Promise<void> {
-    if (!parsed || selected.size === 0 || busy) return;
+    if (!parsed || importable.length === 0 || busy) return;
     setBusy(true);
     setError(null);
-    setProgress({ done: 0, total: selected.size });
-    const activity = startActivity({ label: importLabel(0, selected.size), total: selected.size });
+    setProgress({ done: 0, total: importable.length });
+    const activity = startActivity({ label: importLabel(0, importable.length), total: importable.length });
     try {
       const summary = await importOpml(parsed, {
-        selected: [...selected],
+        selected: importable.map((f) => f.xmlUrl),
         fetchNow,
         // Fire and forget: the articles arrive while the dialog closes. The sync reports its own activity.
         syncFeeds: (ids) => {
@@ -248,8 +275,8 @@ export function ImportOpmlTab() {
           ) : null}
 
           <div className="flex justify-end">
-            <Button variant="primary" loading={busy} disabled={selected.size === 0} onClick={() => void runImport()}>
-              {`Import ${selected.size} ${selected.size === 1 ? 'feed' : 'feeds'}`}
+            <Button variant="primary" loading={busy} disabled={importable.length === 0} onClick={() => void runImport()}>
+              {`Import ${importable.length} ${importable.length === 1 ? 'feed' : 'feeds'}`}
             </Button>
           </div>
         </>

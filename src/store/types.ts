@@ -14,9 +14,18 @@ export type TimelineSort = 'newest' | 'oldest';
 export type MobilePane = 'nav' | 'timeline' | 'reader';
 export type AddFeedTab = 'url' | 'discover' | 'xml' | 'opml';
 
+/** An OPML file handed over by the OS (file handler) or the launch queue; read as text. */
+export interface OpmlFilePayload {
+  name: string;
+  text: string;
+}
+
 export interface AddFeedDialogPayload {
+  /** Prefilled address: the URL tab, or the website searched on the Discover tab. */
   initialUrl?: string;
   tab?: AddFeedTab;
+  /** Preloaded into the Import OPML tab. */
+  opmlFile?: OpmlFilePayload;
 }
 
 export interface SettingsDialogPayload {
