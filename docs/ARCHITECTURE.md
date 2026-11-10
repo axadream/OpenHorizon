@@ -137,7 +137,7 @@ export interface SyncLogEntry {
   finishedAt: number;
   status: 'ok' | 'notModified' | 'error';
   newCount: number;
-  via: 'direct' | 'env' | 'allorigins' | 'corsproxy' | 'cache';
+  via: 'direct' | 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json' | 'cache';
   error?: string;
   origin: 'page' | 'sw';
 }
@@ -332,17 +332,22 @@ Timeline shows `timelineLimit` articles (100). The list footer renders `Button s
 ### 5.1 Proxy list — `proxies.ts`
 
 ```ts
-export interface ProxyDef { id: 'env' | 'allorigins' | 'corsproxy'; build(url: string): string; passesHeaders: boolean; }
+export type ProxyId = 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json';
+export interface ProxyDef { id: ProxyId; build(url: string): string; passesHeaders: boolean; kind?: 'raw' | 'rss2json'; timeoutMs?: number; }
 export function getProxies(): ProxyDef[] {
   const list: ProxyDef[] = [];
   const env = import.meta.env.VITE_CORS_PROXY as string | undefined;   // e.g. "https://my-proxy.example.com/?url={url}" ; "{url}" is replaced with encodeURIComponent(url); if no "{url}" placeholder, the encoded URL is appended
   if (env) list.push({ id: 'env', passesHeaders: true, build: u => env.includes('{url}') ? env.replace('{url}', encodeURIComponent(u)) : env + encodeURIComponent(u) });
-  list.push({ id: 'allorigins', passesHeaders: false, build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` });
-  list.push({ id: 'corsproxy',  passesHeaders: false, build: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` });
+  if (import.meta.env.VITE_DISABLE_LOCAL_PROXY !== '1') list.push({ id: 'local', passesHeaders: true, build: u => `/api/proxy?url=${encodeURIComponent(u)}` });
+  list.push({ id: 'allorigins', passesHeaders: false, timeoutMs: 8000, build: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` });
+  list.push({ id: 'corsproxy',  passesHeaders: false, timeoutMs: 8000, build: u => `https://corsproxy.io/?${encodeURIComponent(u)}` });
+  list.push({ id: 'codetabs',   passesHeaders: false, timeoutMs: 8000, build: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` });
+  list.push({ id: 'rss2json',   passesHeaders: false, timeoutMs: 8000, kind: 'rss2json', build: u => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(u)}` });
   return list;
 }
 ```
-Order of attempts: **direct → env (if set) → allorigins → corsproxy**. ("Env goes first" means first among proxies; a direct CORS-enabled fetch is always cheaper and preserves headers, so it is tried before any proxy.) In the SW, `import.meta.env.VITE_CORS_PROXY` is also available (Vite injects env into the SW build with vite-plugin-pwa injectManifest).
+```
+Order of attempts: **direct → env (if set) → local (unless disabled) → allorigins → corsproxy → codetabs → rss2json**. rss2json is skipped when `expectHtml` is set (discovery of HTML pages). ("Env goes first" means first among proxies; a direct CORS-enabled fetch is always cheaper and preserves headers, so it is tried before any proxy.) In the SW, `import.meta.env.VITE_CORS_PROXY` is also available (Vite injects env into the SW build with vite-plugin-pwa injectManifest).
 
 ### 5.2 Failure memory — `failureMemory.ts`
 
@@ -362,7 +367,7 @@ export interface FetchResult {
   etag?: string; lastModified?: string; // only when via === 'direct' | 'env'
   contentType?: string;
   finalUrl: string;                     // response.url when available, else requested
-  via: 'direct' | 'env' | 'allorigins' | 'corsproxy';
+  via: 'direct' | 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json';
 }
 export class FetchAllFailedError extends Error { attempts: { via: string; error: string }[] }
 export async function fetchWithProxy(url: string, opts: FetchOptions = {}): Promise<FetchResult>
@@ -746,7 +751,7 @@ AC: `parseFeed` returns the exact normalized shapes for all fixtures (content pr
 
 **Batch 3 — Fetching, discovery, OPML**
 Files: `src/lib/proxy/{proxies,failureMemory,fetchWithProxy}.ts`, `src/lib/discovery/discoverFeeds.ts`, `src/lib/opml/{parseOpml,exportOpml}.ts`, `src/features/feeds/{favicon,addFeed,removeFeed,folders}.ts`, tests with mocked `fetch`.
-AC: `fetchWithProxy` tries direct → env → allorigins → corsproxy in order (mock asserts call order and URL templates exactly as §5.1); aborts after 15 s; honors failure cooldown; sends `If-None-Match` only on direct/env; `discoverFeeds` finds link-tag feeds, resolves relative hrefs, falls back to well-known paths, validates and dedups; `parseOpml` flattens nested folders with ` / `; `exportOpml` output round-trips through `parseOpml`; `addFeedFromUrl` rejects duplicates with `AlreadySubscribedError`.
+AC: `fetchWithProxy` tries direct → env → local → allorigins → corsproxy → codetabs → rss2json in order (mock asserts call order and URL templates exactly as §5.1); aborts after 15 s; honors failure cooldown; sends `If-None-Match` only on direct/env; `discoverFeeds` finds link-tag feeds, resolves relative hrefs, falls back to well-known paths, validates and dedups; `parseOpml` flattens nested folders with ` / `; `exportOpml` output round-trips through `parseOpml`; `addFeedFromUrl` rejects duplicates with `AlreadySubscribedError`.
 
 **Batch 4 — Store, live queries, actions**
 Files: `src/store/{uiStore,selectors,types}.ts`, `src/hooks/useLive.ts`, `src/features/articles/{articleQueries,articleActions}.ts`, `src/features/feeds/feedQueries.ts`.

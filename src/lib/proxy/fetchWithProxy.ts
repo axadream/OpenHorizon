@@ -9,13 +9,14 @@ import {
   shouldSkip,
   shouldSkipDirectForHost,
 } from './failureMemory';
+import { rss2jsonToJsonFeedText } from './rss2json';
 
-export type FetchVia = 'direct' | 'env' | 'local' | 'allorigins' | 'codetabs';
+export type FetchVia = 'direct' | 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json';
 
 export interface FetchOptions {
   etag?: string;
   lastModified?: string;
-  /** Default 15000. */
+  /** Overrides every attempt's timeout. Default: per-proxy timeoutMs, else 15000. */
   timeoutMs?: number;
   signal?: AbortSignal;
   /** Default: feed Accept header. */
@@ -58,6 +59,8 @@ interface Attempt {
   via: FetchVia;
   id: AttemptId;
   passesHeaders: boolean;
+  kind: 'raw' | 'rss2json';
+  timeoutMs?: number;
   target: string;
 }
 
@@ -75,13 +78,22 @@ function finalUrlFor(via: FetchVia, response: Response, requested: string): stri
   return requested;
 }
 
-function buildAttempts(url: string, host: string, now: number): Attempt[] {
+function buildAttempts(url: string, host: string, now: number, expectHtml: boolean): Attempt[] {
   const all: Attempt[] = [];
   if (!(host && shouldSkipDirectForHost(host, now))) {
-    all.push({ via: 'direct', id: 'direct', passesHeaders: true, target: url });
+    all.push({ via: 'direct', id: 'direct', passesHeaders: true, kind: 'raw', target: url });
   }
   for (const p of getProxies()) {
-    all.push({ via: p.id, id: p.id, passesHeaders: p.passesHeaders, target: p.build(url) });
+    // rss2json only understands feeds, never HTML pages (discovery).
+    if (p.kind === 'rss2json' && expectHtml) continue;
+    all.push({
+      via: p.id,
+      id: p.id,
+      passesHeaders: p.passesHeaders,
+      kind: p.kind ?? 'raw',
+      timeoutMs: p.timeoutMs,
+      target: p.build(url),
+    });
   }
   // Skip cooled-down attempts; if everything is cooling down, ignore the cooldown and try all.
   const active = all.filter((a) => !shouldSkip(a.id, now));
@@ -90,7 +102,7 @@ function buildAttempts(url: string, host: string, now: number): Attempt[] {
 
 async function attemptOne(a: Attempt, url: string, host: string, opts: FetchOptions): Promise<FetchResult> {
   const ctrl = new AbortController();
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = opts.timeoutMs ?? a.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -127,9 +139,16 @@ async function attemptOne(a: Attempt, url: string, host: string, opts: FetchOpti
     }
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const text = await response.text();
-    if (text.trim().length === 0) throw new Error('empty response');
-    if (a.via !== 'direct' && !opts.expectHtml && isProxyErrorPage(text)) {
+    const body = await response.text();
+    if (body.trim().length === 0) throw new Error('empty response');
+
+    let text = body;
+    let contentType = response.headers.get('content-type') ?? undefined;
+    if (a.kind === 'rss2json') {
+      // Converted to JSON Feed text; the error-page check does not apply to JSON.
+      text = rss2jsonToJsonFeedText(body, url);
+      contentType = 'application/feed+json';
+    } else if (a.via !== 'direct' && !opts.expectHtml && isProxyErrorPage(text)) {
       throw new Error('proxy returned an HTML error page');
     }
 
@@ -140,7 +159,7 @@ async function attemptOne(a: Attempt, url: string, host: string, opts: FetchOpti
       text,
       etag,
       lastModified,
-      contentType: response.headers.get('content-type') ?? undefined,
+      contentType,
       finalUrl: finalUrlFor(a.via, response, url),
       via: a.via,
     };
@@ -158,13 +177,14 @@ async function attemptOne(a: Attempt, url: string, host: string, opts: FetchOpti
 }
 
 /**
- * Fetch a feed URL: direct -> env proxy (if set) -> local /api/proxy -> allorigins -> codetabs.
+ * Fetch a feed URL: direct -> env proxy (if set) -> local /api/proxy -> allorigins -> corsproxy
+ * -> codetabs -> rss2json (rss2json skipped when opts.expectHtml).
  * Throws FetchAllFailedError with per-attempt errors when every attempt fails.
  */
 export async function fetchWithProxy(url: string, opts: FetchOptions = {}): Promise<FetchResult> {
   const now = Date.now();
   const host = hostname(url);
-  const attempts = buildAttempts(url, host, now);
+  const attempts = buildAttempts(url, host, now, opts.expectHtml === true);
   const errors: FetchAttemptError[] = [];
 
   for (const a of attempts) {

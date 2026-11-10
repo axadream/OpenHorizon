@@ -1,5 +1,7 @@
 import { db } from '@/db/db';
 import type { Feed } from '@/db/schema';
+import { dedupeWithinFetch } from '@/features/articles/dedup';
+import { toArticle } from '@/features/articles/toArticle';
 import type { OpmlResult } from '@/lib/opml/parseOpml';
 import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
 import { parseFeed } from '@/lib/parser/parseFeed';
@@ -89,15 +91,25 @@ export async function addFeedFromUrl(input: string, opts: AddFeedOptions = {}): 
   return insertFeed(feed);
 }
 
-/** Subscribe to pasted XML with no source URL. Stored as a manual feed that is never synced. */
+/**
+ * Subscribe to pasted XML with no source URL. Stored as a manual feed that is never synced;
+ * its items are written once here, since the sync scheduler skips manual feeds.
+ */
 export async function addManualFeedFromXml(xml: string, opts: { folderId?: string | null } = {}): Promise<Feed> {
-  const parsed = await parseFeed(xml, '');
+  const parsed = parseFeed(xml, '');
   const id = crypto.randomUUID();
   const now = Date.now();
   const feed = buildFeed(`manual:${id}`, parsed, opts.folderId ?? null, now);
   feed.id = id;
   feed.manual = 1;
-  await db.feeds.add(feed);
+  feed.lastSuccessAt = now;
+  feed.lastFetchedAt = now;
+
+  const articles = dedupeWithinFetch(parsed.items).map((item) => toArticle(id, item, now));
+  await db.transaction('rw', db.feeds, db.articles, async () => {
+    await db.feeds.add(feed);
+    if (articles.length > 0) await db.articles.bulkAdd(articles);
+  });
   return feed;
 }
 

@@ -1,6 +1,7 @@
 import type { ProxyDef } from './proxies';
 
 export type AttemptId = ProxyDef['id'] | 'direct';
+// ProxyDef['id'] already includes 'corsproxy' and 'rss2json'.
 
 interface Health {
   consecutiveFailures: number;

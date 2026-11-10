@@ -3,9 +3,10 @@ import { db } from '@/db/db';
 import type { Article, Feed, SyncLogEntry } from '@/db/schema';
 import { dedupeWithinFetch } from '@/features/articles/dedup';
 import { pruneFeed } from '@/features/articles/retention';
+import { toArticle } from '@/features/articles/toArticle';
 import { initialFaviconUrl } from '@/features/feeds/favicon';
 import { parseFeed } from '@/lib/parser/parseFeed';
-import type { ParsedFeed, ParsedItem } from '@/lib/parser/types';
+import type { ParsedFeed } from '@/lib/parser/types';
 import { FetchAllFailedError, fetchWithProxy, type FetchResult } from '@/lib/proxy/fetchWithProxy';
 import { ensureXmlEnv } from '@/lib/xml/dom';
 
@@ -52,27 +53,6 @@ function headerPatch(res: FetchResult): Partial<Feed> {
   if (res.etag) patch.etag = res.etag;
   if (res.lastModified) patch.lastModified = res.lastModified;
   return patch;
-}
-
-function toArticle(feedId: string, item: ParsedItem, fetchedAt: number): Article {
-  const article: Article = {
-    id: crypto.randomUUID(),
-    feedId,
-    guid: item.guid,
-    link: item.link,
-    title: item.title,
-    summary: item.summary,
-    contentRaw: item.contentRaw,
-    publishedAt: item.publishedAt ?? fetchedAt,
-    fetchedAt,
-    isRead: 0,
-    isReadLater: 0,
-    isFavorite: 0,
-  };
-  if (item.author) article.author = item.author;
-  if (item.thumbnailUrl) article.thumbnailUrl = item.thumbnailUrl;
-  if (item.enclosures.length > 0) article.enclosures = item.enclosures;
-  return article;
 }
 
 async function writeLog(entry: SyncLogEntry): Promise<void> {

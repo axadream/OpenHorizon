@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FetchAllFailedError, fetchWithProxy } from './fetchWithProxy';
 import { resetFailureMemory, shouldSkip, recordFailure } from './failureMemory';
+import { parseFeed } from '@/lib/parser/parseFeed';
 
 const FEED = 'https://example.com/feed.xml';
 const RSS = '<?xml version="1.0"?><rss version="2.0"><channel><title>T</title></channel></rss>';
 const LOCAL = `/api/proxy?url=${encodeURIComponent(FEED)}`;
 const ALLORIGINS = `https://api.allorigins.win/raw?url=${encodeURIComponent(FEED)}`;
+const CORSPROXY = `https://corsproxy.io/?${encodeURIComponent(FEED)}`;
 const CODETABS = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(FEED)}`;
+const RSS2JSON = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(FEED)}`;
 
 type Init = RequestInit & { headers: Record<string, string> };
 
@@ -30,15 +33,16 @@ afterEach(() => {
 });
 
 describe('fetchWithProxy order and headers', () => {
-  it('tries direct, then local, then allorigins, then codetabs with exact URL templates', async () => {
+  it('tries direct, local, allorigins, corsproxy, codetabs, rss2json with exact URL templates', async () => {
     stubFetch((url) => {
       if (url === FEED) return new Response('nope', { status: 500 });
       if (url === LOCAL) return new Response('nope', { status: 500 });
       if (url === ALLORIGINS) return new Response('nope', { status: 503 });
+      if (url === CORSPROXY) return new Response('nope', { status: 403 });
       return new Response(RSS, { status: 200 });
     });
     const res = await fetchWithProxy(FEED);
-    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([FEED, LOCAL, ALLORIGINS, CODETABS]);
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([FEED, LOCAL, ALLORIGINS, CORSPROXY, CODETABS]);
     expect(res.via).toBe('codetabs');
     expect(res.text).toBe(RSS);
     expect(res.finalUrl).toBe(FEED);
@@ -114,7 +118,7 @@ describe('fetchWithProxy order and headers', () => {
       return new Response(RSS);
     });
     const res = await fetchWithProxy(FEED);
-    expect(res.via).toBe('codetabs');
+    expect(res.via).toBe('corsproxy');
   });
 
   it('treats an empty body as a failure', async () => {
@@ -131,8 +135,67 @@ describe('fetchWithProxy order and headers', () => {
       'direct',
       'local',
       'allorigins',
+      'corsproxy',
       'codetabs',
+      'rss2json',
     ]);
+  });
+});
+
+describe('fetchWithProxy rss2json', () => {
+  const RSS2JSON_BODY = JSON.stringify({
+    status: 'ok',
+    feed: { title: 'Relay Feed', link: 'https://example.com/', description: 'D' },
+    items: [
+      {
+        guid: 'r1',
+        link: 'https://example.com/a',
+        title: 'Alpha story',
+        pubDate: '2026-01-02 03:04:05',
+        description: '<p>Alpha</p>',
+        content: '<p>Alpha</p>',
+        author: 'Ann',
+        enclosure: { link: 'https://example.com/a.mp3', type: 'audio/mpeg', length: '1234' },
+      },
+      { guid: 'r2', link: 'https://example.com/b', title: 'Beta story', pubDate: '2026-01-03 00:00:00', description: 'Beta' },
+    ],
+  });
+
+  it('converts a rss2json response into JSON Feed text that parseFeed reads', async () => {
+    stubFetch((url) => {
+      if (url === RSS2JSON) return new Response(RSS2JSON_BODY, { headers: { 'content-type': 'application/json' } });
+      return new Response('x', { status: 500 });
+    });
+    const res = await fetchWithProxy(FEED, { expectHtml: false });
+    expect(res.via).toBe('rss2json');
+    expect(res.contentType).toBe('application/feed+json');
+    expect(res.finalUrl).toBe(FEED);
+
+    const parsed = parseFeed(res.text, FEED);
+    expect(parsed.kind).toBe('json');
+    expect(parsed.title).toBe('Relay Feed');
+    expect(parsed.items.map((i) => i.title)).toEqual(['Alpha story', 'Beta story']);
+    expect(parsed.items[0]?.author).toBe('Ann');
+    expect(parsed.items[0]?.enclosures).toEqual([{ url: 'https://example.com/a.mp3', type: 'audio/mpeg', length: 1234 }]);
+    expect(parsed.items[0]?.publishedAt).toBe(Date.parse('2026-01-02T03:04:05Z'));
+  });
+
+  it('treats an rss2json error status as a failure and moves on', async () => {
+    stubFetch((url) => {
+      if (url === RSS2JSON) return new Response(JSON.stringify({ status: 'error', message: 'Feed not found' }));
+      return new Response('x', { status: 500 });
+    });
+    const err = await fetchWithProxy(FEED).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FetchAllFailedError);
+    const rss2jsonAttempt = (err as FetchAllFailedError).attempts.find((a) => a.via === 'rss2json');
+    expect(rss2jsonAttempt?.error).toBe('Feed not found');
+  });
+
+  it('is skipped when expectHtml is true', async () => {
+    stubFetch(() => new Response('x', { status: 500 }));
+    await fetchWithProxy(FEED, { expectHtml: true }).catch(() => undefined);
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain(RSS2JSON);
+    expect(fetchMock.mock.calls.map((c) => c[0])).toContain(CODETABS);
   });
 });
 
@@ -152,6 +215,24 @@ describe('fetchWithProxy timeout', () => {
     expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(true);
     const res = await p;
     expect(res.via).toBe('local');
+  });
+
+  it('uses the 8 second per-proxy timeout for public proxies', async () => {
+    vi.useFakeTimers();
+    stubFetch((url, init) => {
+      if (url === FEED || url === LOCAL) return Promise.resolve(new Response('x', { status: 500 }));
+      if (url !== ALLORIGINS) return Promise.resolve(new Response(RSS));
+      return new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+      });
+    });
+    const p = fetchWithProxy(FEED);
+    await vi.advanceTimersByTimeAsync(7_999);
+    expect(fetchMock.mock.calls[2]?.[1].signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetchMock.mock.calls[2]?.[1].signal?.aborted).toBe(true);
+    const res = await p;
+    expect(res.via).toBe('corsproxy');
   });
 
   it('stops immediately when the caller aborts', async () => {
@@ -185,7 +266,7 @@ describe('failure cooldown', () => {
 
   it('ignores cooldowns when every attempt is cooling down', async () => {
     stubFetch(() => new Response(RSS));
-    for (const id of ['direct', 'local', 'allorigins', 'codetabs'] as const) {
+    for (const id of ['direct', 'local', 'allorigins', 'corsproxy', 'codetabs', 'rss2json'] as const) {
       recordFailure(id);
       recordFailure(id);
       recordFailure(id);

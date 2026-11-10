@@ -26,7 +26,9 @@ const VIA_LABEL: Record<string, string> = {
   env: 'custom proxy',
   local: 'built-in proxy',
   allorigins: 'allorigins',
+  corsproxy: 'corsproxy',
   codetabs: 'codetabs',
+  rss2json: 'rss2json',
 };
 
 function describeError(err: unknown): UrlError {

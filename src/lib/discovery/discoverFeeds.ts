@@ -9,6 +9,11 @@ export interface FeedCandidate {
   title?: string;
   kind?: FeedKind;
   source: 'link-tag' | 'anchor' | 'well-known' | 'direct';
+  /**
+   * true when the candidate was fetched and parsed as a feed; false when it is an
+   * unvalidated fallback (every probe failed, e.g. proxies down). Absent when validation was skipped.
+   */
+  verified?: boolean;
 }
 
 export interface DiscoverOptions {
@@ -19,7 +24,14 @@ export interface DiscoverOptions {
 
 const DISCOVER_ACCEPT = 'text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,*/*';
 const FEED_TYPES = new Set(['application/rss+xml', 'application/atom+xml', 'application/feed+json', 'text/xml', 'application/xml']);
+/** Feed-looking URL shapes (checked against the resolved href). */
 const ANCHOR_RE = /(\/feed|\/rss|\/atom|\.rss|\.xml|feed\.json|\/feeds?\/)(\?|$|\/)/i;
+/** Anchor text or href that mentions a feed format. */
+const FEED_WORD_RE = /rss|atom|feed/i;
+/** Obvious non-feed resources that are never candidates. */
+const NON_FEED_EXT_RE = /\.(css|js|png|jpe?g|gif|svg|webp|ico)$/i;
+/** Hrefs with these schemes never point at a feed. */
+const NON_HTTP_SCHEME_RE = /^(mailto|javascript|tel):/i;
 const WELL_KNOWN_PATHS = [
   '/feed',
   '/feed/',
@@ -32,7 +44,7 @@ const WELL_KNOWN_PATHS = [
   '/feeds/posts/default',
   '/?feed=rss2',
 ];
-const MAX_ANCHORS = 10;
+const MAX_ANCHORS = 30;
 const PROBE_LIMIT = 4;
 const VALIDATE_CONCURRENCY = 3;
 const VALIDATE_TIMEOUT_MS = 10_000;
@@ -42,7 +54,11 @@ interface Probe {
   title?: string;
 }
 
-/** Discover feeds for a page or URL. Returns [] when nothing usable is found. */
+/**
+ * Discover feeds for a page or URL. Returns [] only when no candidate at all is found.
+ * With validate (default), candidates that fail every probe are still returned as
+ * verified: false when nothing verified, so the user can try them.
+ */
 export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): Promise<FeedCandidate[]> {
   const validate = opts.validate ?? true;
   const url = toUrl(input);
@@ -55,7 +71,7 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   // Step 3: the URL itself is a feed.
   const direct = await tryParse(res.text, res.finalUrl);
   if (direct) {
-    return [{ url: res.finalUrl, title: direct.title || undefined, kind: direct.kind, source: 'direct' }];
+    return [{ url: res.finalUrl, title: direct.title || undefined, kind: direct.kind, source: 'direct', verified: true }];
   }
 
   // Step 4: HTML page -> <link rel=alternate> and feed-looking anchors.
@@ -82,7 +98,7 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
     throwIfAborted(opts.signal);
     const probe = await probeUrl(c.url, opts.signal);
     if (probe) {
-      wellKnownHit = { ...c, kind: probe.kind, title: c.title ?? probe.title };
+      wellKnownHit = { ...c, kind: probe.kind, title: c.title ?? probe.title, verified: true };
       break;
     }
   }
@@ -90,7 +106,11 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   const ordered: FeedCandidate[] = [];
   for (const c of validatedLinks) if (c) ordered.push(c);
   if (wellKnownHit) ordered.push(wellKnownHit);
-  return dedupe(ordered);
+  if (ordered.length > 0) return dedupe(ordered);
+
+  // No probe succeeded (proxies may all be down): offer the unvalidated link/anchor candidates.
+  throwIfAborted(opts.signal);
+  return dedupe([...linkCands, ...anchorCands].map((c) => ({ ...c, verified: false })));
 }
 
 function toUrl(input: string): URL {
@@ -132,7 +152,7 @@ async function probeUrl(url: string, signal?: AbortSignal): Promise<Probe | null
 async function validateCandidate(c: FeedCandidate, signal?: AbortSignal): Promise<FeedCandidate | null> {
   const probe = await probeUrl(c.url, signal);
   if (!probe) return null;
-  return { ...c, kind: probe.kind, title: c.title ?? probe.title };
+  return { ...c, kind: probe.kind, title: c.title ?? probe.title, verified: true };
 }
 
 function absolute(href: string, base: string): string | null {
@@ -170,10 +190,16 @@ function collectAnchors(doc: Document, base: string): FeedCandidate[] {
   for (const a of Array.from(doc.getElementsByTagName('a'))) {
     if (out.length >= MAX_ANCHORS) break;
     const href = (a.getAttribute('href') ?? '').trim();
-    if (!href) continue;
+    if (!href || href.startsWith('#') || NON_HTTP_SCHEME_RE.test(href)) continue;
     const u = absolute(href, base);
-    if (!u || !ANCHOR_RE.test(u)) continue;
-    out.push({ url: u, source: 'anchor' });
+    if (!u) continue;
+    const path = u.split(/[?#]/)[0] ?? u;
+    if (NON_FEED_EXT_RE.test(path)) continue;
+    const text = (a.textContent ?? '').replace(/\s+/g, ' ').trim();
+    const looksLikeFeed =
+      ANCHOR_RE.test(u) || /\.xml$/i.test(path) || FEED_WORD_RE.test(href) || FEED_WORD_RE.test(text);
+    if (!looksLikeFeed) continue;
+    out.push(text ? { url: u, title: text, source: 'anchor' } : { url: u, source: 'anchor' });
   }
   return out;
 }

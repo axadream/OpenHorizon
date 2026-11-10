@@ -3,7 +3,7 @@ import { db } from '@/db/db';
 import type { Article, Feed, Folder } from '@/db/schema';
 import { resetFailureMemory } from '@/lib/proxy/failureMemory';
 import { parseOpml } from '@/lib/opml/parseOpml';
-import { AlreadySubscribedError, addFeedFromUrl, importOpml } from './addFeed';
+import { AlreadySubscribedError, addFeedFromUrl, addManualFeedFromXml, importOpml } from './addFeed';
 import { createFolder, deleteFolder, moveFeedToFolder, renameFolder } from './folders';
 import { removeFeed, restoreFeed } from './removeFeed';
 import { faviconCandidates, initialFaviconUrl } from './favicon';
@@ -46,6 +46,19 @@ describe('addFeedFromUrl', () => {
     const err = await addFeedFromUrl('https://example.com/feed.xml').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AlreadySubscribedError);
     expect(await db.feeds.count()).toBe(1);
+  });
+});
+
+describe('addManualFeedFromXml', () => {
+  it('stores the feed as manual and writes its articles', async () => {
+    const xml = `<?xml version="1.0"?><rss version="2.0"><channel><title>Pasted</title>
+      <item><title>First</title><link>https://pasted.test/1</link><guid>p1</guid></item>
+      <item><title>Second</title><link>https://pasted.test/2</link><guid>p2</guid></item>
+    </channel></rss>`;
+    const feed = await addManualFeedFromXml(xml);
+    expect(feed.manual).toBe(1);
+    expect(feed.lastSuccessAt).toBeTypeOf('number');
+    expect(await db.articles.where('feedId').equals(feed.id).count()).toBe(2);
   });
 });
 

@@ -1,17 +1,20 @@
 import { cn } from '@/lib/cn';
 
 export interface BadgeProps {
-  count: number;
+  /** Number shown in the pill. Ignored when `label` is set. */
+  count?: number;
+  /** Text shown instead of the count (for example "unverified"). */
+  label?: string;
   tone?: 'neutral' | 'accent';
   /** Render even when count is 0. Default false (badge hidden). */
   showZero?: boolean;
   className?: string;
 }
 
-/** Count pill. Caps display at 999+. Renders nothing for 0 unless showZero. */
-export function Badge({ count, tone = 'neutral', showZero = false, className }: BadgeProps) {
-  if (count === 0 && !showZero) return null;
-  const label = count > 999 ? '999+' : String(count);
+/** Count pill, or a short text pill when `label` is given. Caps numeric display at 999+. Renders nothing for 0 unless showZero. */
+export function Badge({ count = 0, label, tone = 'neutral', showZero = false, className }: BadgeProps) {
+  if (label === undefined && count === 0 && !showZero) return null;
+  const text = label ?? (count > 999 ? '999+' : String(count));
   return (
     <span
       className={cn(
@@ -20,7 +23,7 @@ export function Badge({ count, tone = 'neutral', showZero = false, className }: 
         className,
       )}
     >
-      {label}
+      {text}
     </span>
   );
 }

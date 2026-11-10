@@ -82,7 +82,7 @@ export interface SyncLogEntry {
   finishedAt: number;
   status: 'ok' | 'notModified' | 'error';
   newCount: number;
-  via: 'direct' | 'env' | 'local' | 'allorigins' | 'codetabs' | 'cache';
+  via: 'direct' | 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json' | 'cache';
   error?: string;
   origin: 'page' | 'sw';
 }

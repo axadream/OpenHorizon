@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Check, Rss } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -51,6 +52,7 @@ function CandidateRow({ candidate, subscribed, busy, onAdd }: CandidateRowProps)
               {KIND_LABEL[candidate.kind]}
             </span>
           ) : null}
+          {candidate.verified === false ? <Badge label="unverified" className="shrink-0 text-[10px]" /> : null}
         </div>
         <p className="truncate text-xs text-text-muted">{candidate.url}</p>
       </div>
