@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FetchAllFailedError, fetchWithProxy } from './fetchWithProxy';
-import { resetFailureMemory, shouldSkip, recordFailure } from './failureMemory';
+import { resetFailureMemory, shouldSkip, shouldSkipDirectForHost, recordFailure } from './failureMemory';
 import { parseFeed } from '@/lib/parser/parseFeed';
 
 const FEED = 'https://example.com/feed.xml';
 const RSS = '<?xml version="1.0"?><rss version="2.0"><channel><title>T</title></channel></rss>';
 const LOCAL = `/api/proxy?url=${encodeURIComponent(FEED)}`;
+const JINA = `https://r.jina.ai/${FEED}`;
+const ALLORIGINS_GET = `https://api.allorigins.win/get?url=${encodeURIComponent(FEED)}`;
 const ALLORIGINS = `https://api.allorigins.win/raw?url=${encodeURIComponent(FEED)}`;
 const CORSPROXY = `https://corsproxy.io/?${encodeURIComponent(FEED)}`;
 const CODETABS = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(FEED)}`;
 const RSS2JSON = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(FEED)}`;
+const ALL_VIAS = ['direct', 'local', 'jina', 'alloriginsget', 'allorigins', 'corsproxy', 'codetabs', 'rss2json'];
 
 type Init = RequestInit & { headers: Record<string, string> };
 
@@ -18,6 +21,17 @@ let fetchMock: ReturnType<typeof vi.fn>;
 function stubFetch(responder: (url: string, init: Init) => Response | Promise<Response>) {
   fetchMock = vi.fn((url: string, init: Init) => responder(url, init));
   vi.stubGlobal('fetch', fetchMock);
+}
+
+/** A response that never answers and rejects with AbortError when its signal aborts. */
+function hang(init: Init): Promise<Response> {
+  return new Promise<Response>((_resolve, reject) => {
+    init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+  });
+}
+
+function callsTo(url: string) {
+  return fetchMock.mock.calls.filter((c) => c[0] === url);
 }
 
 beforeEach(() => {
@@ -33,19 +47,28 @@ afterEach(() => {
 });
 
 describe('fetchWithProxy order and headers', () => {
-  it('tries direct, local, allorigins, corsproxy, codetabs, rss2json with exact URL templates', async () => {
+  it('tries direct, local, jina, alloriginsget, allorigins, corsproxy, codetabs with exact URL templates', async () => {
+    const failing = new Set([FEED, LOCAL, JINA, ALLORIGINS_GET, ALLORIGINS, CORSPROXY]);
     stubFetch((url) => {
-      if (url === FEED) return new Response('nope', { status: 500 });
-      if (url === LOCAL) return new Response('nope', { status: 500 });
       if (url === ALLORIGINS) return new Response('nope', { status: 503 });
       if (url === CORSPROXY) return new Response('nope', { status: 403 });
+      if (failing.has(url)) return new Response('nope', { status: 500 });
       return new Response(RSS, { status: 200 });
     });
     const res = await fetchWithProxy(FEED);
-    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([FEED, LOCAL, ALLORIGINS, CORSPROXY, CODETABS]);
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([FEED, LOCAL, JINA, ALLORIGINS_GET, ALLORIGINS, CORSPROXY, CODETABS]);
     expect(res.via).toBe('codetabs');
     expect(res.text).toBe(RSS);
     expect(res.finalUrl).toBe(FEED);
+  });
+
+  it('sends X-Return-Format: html to jina and nothing extra to the other proxies', async () => {
+    stubFetch((url) => (url === FEED || url === LOCAL ? new Response('x', { status: 500 }) : new Response(RSS)));
+    const res = await fetchWithProxy(FEED);
+    expect(res.via).toBe('jina');
+    expect(callsTo(JINA)[0]?.[1].headers['X-Return-Format']).toBe('html');
+    expect(callsTo(JINA)[0]?.[1].headers['If-None-Match']).toBeUndefined();
+    expect(fetchMock.mock.calls.filter((c) => c[0] === FEED)[0]?.[1].headers['X-Return-Format']).toBeUndefined();
   });
 
   it('uses the local proxy and reports X-OH-Final-Url as finalUrl', async () => {
@@ -64,8 +87,9 @@ describe('fetchWithProxy order and headers', () => {
     vi.stubEnv('VITE_DISABLE_LOCAL_PROXY', '1');
     stubFetch((url) => (url === FEED ? new Response('x', { status: 500 }) : new Response(RSS)));
     const res = await fetchWithProxy(FEED);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(ALLORIGINS);
-    expect(res.via).toBe('allorigins');
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain(LOCAL);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(JINA);
+    expect(res.via).toBe('jina');
   });
 
   it('puts the env proxy right after direct and fills {url}', async () => {
@@ -83,16 +107,21 @@ describe('fetchWithProxy order and headers', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe(`https://my-proxy.example.com/raw?u=${encodeURIComponent(FEED)}`);
   });
 
-  it('sends conditional headers on direct and local but never on allorigins', async () => {
-    stubFetch((url) => (url === FEED || url === LOCAL ? new Response('x', { status: 500 }) : new Response(RSS)));
-    await fetchWithProxy(FEED, { etag: '"abc"', lastModified: 'Mon, 01 Jan 2026 00:00:00 GMT' });
-    for (const i of [0, 1]) {
-      expect(fetchMock.mock.calls[i]?.[1].headers['If-None-Match']).toBe('"abc"');
-      expect(fetchMock.mock.calls[i]?.[1].headers['If-Modified-Since']).toBe('Mon, 01 Jan 2026 00:00:00 GMT');
+  it('sends conditional headers on direct and local but never on the public proxies', async () => {
+    const failing = new Set([FEED, LOCAL, JINA, ALLORIGINS_GET]);
+    stubFetch((url) => (failing.has(url) ? new Response('x', { status: 500 }) : new Response(RSS)));
+    const res = await fetchWithProxy(FEED, { etag: '"abc"', lastModified: 'Mon, 01 Jan 2026 00:00:00 GMT' });
+    expect(res.via).toBe('allorigins');
+    for (const url of [FEED, LOCAL]) {
+      const init = callsTo(url)[0]?.[1];
+      expect(init?.headers['If-None-Match']).toBe('"abc"');
+      expect(init?.headers['If-Modified-Since']).toBe('Mon, 01 Jan 2026 00:00:00 GMT');
     }
-    expect(fetchMock.mock.calls[2]?.[0]).toBe(ALLORIGINS);
-    expect(fetchMock.mock.calls[2]?.[1].headers['If-None-Match']).toBeUndefined();
-    expect(fetchMock.mock.calls[2]?.[1].headers['If-Modified-Since']).toBeUndefined();
+    for (const url of [JINA, ALLORIGINS_GET, ALLORIGINS]) {
+      const init = callsTo(url)[0]?.[1];
+      expect(init?.headers['If-None-Match']).toBeUndefined();
+      expect(init?.headers['If-Modified-Since']).toBeUndefined();
+    }
   });
 
   it('returns 304 from local with its etag and last-modified', async () => {
@@ -112,8 +141,9 @@ describe('fetchWithProxy order and headers', () => {
   });
 
   it('rejects an HTML error page from a proxy and moves on', async () => {
+    const failing = new Set([FEED, LOCAL, JINA, ALLORIGINS_GET]);
     stubFetch((url) => {
-      if (url === FEED || url === LOCAL) return new Response('x', { status: 500 });
+      if (failing.has(url)) return new Response('x', { status: 500 });
       if (url === ALLORIGINS) return new Response('<!DOCTYPE html><html><body>Rate limited</body></html>');
       return new Response(RSS);
     });
@@ -127,18 +157,50 @@ describe('fetchWithProxy order and headers', () => {
     expect(res.via).toBe('local');
   });
 
-  it('throws FetchAllFailedError with every attempt when all fail', async () => {
+  it('throws FetchAllFailedError with every attempt in order when all fail', async () => {
     stubFetch(() => new Response('x', { status: 500 }));
     const err = await fetchWithProxy(FEED).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(FetchAllFailedError);
-    expect((err as FetchAllFailedError).attempts.map((a) => a.via)).toEqual([
-      'direct',
-      'local',
-      'allorigins',
-      'corsproxy',
-      'codetabs',
-      'rss2json',
-    ]);
+    expect((err as FetchAllFailedError).attempts.map((a) => a.via)).toEqual(ALL_VIAS);
+  });
+});
+
+describe('fetchWithProxy allorigins /get (alloriginsget)', () => {
+  it('unwraps contents, uses status.url as finalUrl and reports the route', async () => {
+    stubFetch((url) => {
+      if (url === ALLORIGINS_GET) {
+        return new Response(
+          JSON.stringify({
+            contents: RSS,
+            status: { url: 'https://example.com/moved/feed.xml', content_type: 'application/rss+xml', http_code: 200 },
+          }),
+        );
+      }
+      return new Response('x', { status: 500 });
+    });
+    const res = await fetchWithProxy(FEED);
+    expect(res.via).toBe('alloriginsget');
+    expect(res.text).toBe(RSS);
+    expect(res.contentType).toBe('application/rss+xml');
+    expect(res.finalUrl).toBe('https://example.com/moved/feed.xml');
+  });
+
+  it('reports the upstream HTTP status from the wrapper as a failure', async () => {
+    stubFetch((url) => {
+      if (url === ALLORIGINS_GET) return new Response(JSON.stringify({ contents: '', status: { http_code: 404 } }));
+      return new Response('x', { status: 500 });
+    });
+    const err = (await fetchWithProxy(FEED).catch((e: unknown) => e)) as FetchAllFailedError;
+    expect(err.attempts.find((a) => a.via === 'alloriginsget')?.error).toBe('HTTP 404');
+  });
+
+  it('treats non-string contents as an empty response', async () => {
+    stubFetch((url) => {
+      if (url === ALLORIGINS_GET) return new Response(JSON.stringify({ contents: null, status: { http_code: 200 } }));
+      return new Response('x', { status: 500 });
+    });
+    const err = (await fetchWithProxy(FEED).catch((e: unknown) => e)) as FetchAllFailedError;
+    expect(err.attempts.find((a) => a.via === 'alloriginsget')?.error).toBe('empty response');
   });
 });
 
@@ -200,39 +262,29 @@ describe('fetchWithProxy rss2json', () => {
 });
 
 describe('fetchWithProxy timeout', () => {
-  it('aborts an attempt after 15 seconds and falls through', async () => {
+  it('aborts a hanging attempt after 15 seconds and reports the timeout', async () => {
     vi.useFakeTimers();
-    stubFetch((url, init) => {
-      if (url !== FEED) return Promise.resolve(new Response(RSS));
-      return new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-      });
-    });
-    const p = fetchWithProxy(FEED);
+    stubFetch((url, init) => (url === FEED ? hang(init) : Promise.resolve(new Response('x', { status: 500 }))));
+    const p = fetchWithProxy(FEED).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(14_999);
     expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(true);
-    const res = await p;
-    expect(res.via).toBe('local');
+    const err = await p;
+    expect(err).toBeInstanceOf(FetchAllFailedError);
+    expect((err as FetchAllFailedError).attempts[0]).toEqual({ via: 'direct', error: 'timed out after 15000 ms' });
   });
 
   it('uses the 8 second per-proxy timeout for public proxies', async () => {
     vi.useFakeTimers();
-    stubFetch((url, init) => {
-      if (url === FEED || url === LOCAL) return Promise.resolve(new Response('x', { status: 500 }));
-      if (url !== ALLORIGINS) return Promise.resolve(new Response(RSS));
-      return new Promise<Response>((_resolve, reject) => {
-        init.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
-      });
-    });
-    const p = fetchWithProxy(FEED);
+    stubFetch((url, init) => (url === ALLORIGINS ? hang(init) : Promise.resolve(new Response('x', { status: 500 }))));
+    const p = fetchWithProxy(FEED).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(7_999);
-    expect(fetchMock.mock.calls[2]?.[1].signal?.aborted).toBe(false);
+    expect(callsTo(ALLORIGINS)[0]?.[1].signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
-    expect(fetchMock.mock.calls[2]?.[1].signal?.aborted).toBe(true);
-    const res = await p;
-    expect(res.via).toBe('corsproxy');
+    expect(callsTo(ALLORIGINS)[0]?.[1].signal?.aborted).toBe(true);
+    const err = (await p) as FetchAllFailedError;
+    expect(err.attempts.find((a) => a.via === 'allorigins')?.error).toBe('timed out after 8000 ms');
   });
 
   it('stops immediately when the caller aborts', async () => {
@@ -241,6 +293,63 @@ describe('fetchWithProxy timeout', () => {
     ctrl.abort();
     await expect(fetchWithProxy(FEED, { signal: ctrl.signal })).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects with AbortError when the caller aborts while routes are in flight', async () => {
+    const ctrl = new AbortController();
+    stubFetch((_url, init) => hang(init));
+    const p = fetchWithProxy(FEED, { signal: ctrl.signal });
+    await Promise.resolve();
+    ctrl.abort();
+    await expect(p).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(true);
+  });
+});
+
+describe('fetchWithProxy hedged requests', () => {
+  it('does not block on a hanging first route: the next one wins after the stagger', async () => {
+    vi.useFakeTimers();
+    stubFetch((url, init) => (url === FEED ? hang(init) : Promise.resolve(new Response(RSS))));
+    const p = fetchWithProxy(FEED);
+
+    await vi.advanceTimersByTimeAsync(2_499);
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual([FEED]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const res = await p;
+    expect(res.via).toBe('local');
+    expect(res.text).toBe(RSS);
+    expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(true);
+  });
+
+  it('aborts the slower route when a winner answers, without recording a failure for it', async () => {
+    vi.useFakeTimers();
+    stubFetch((url, init) => (url === FEED ? hang(init) : Promise.resolve(new Response(RSS))));
+
+    // Two rounds: two recorded direct failures would put example.com into the direct cooldown.
+    for (let round = 1; round <= 2; round++) {
+      const p = fetchWithProxy(FEED);
+      await vi.advanceTimersByTimeAsync(2_500);
+      const res = await p;
+      expect(res.via).toBe('local');
+      expect(callsTo(FEED)).toHaveLength(round);
+      expect(callsTo(FEED)[round - 1]?.[1].signal?.aborted).toBe(true);
+    }
+
+    expect(shouldSkipDirectForHost('example.com')).toBe(false);
+    expect(shouldSkip('direct')).toBe(false);
+  });
+
+  it('lists every attempt in attempt order when all fail, even when the first one fails last', async () => {
+    vi.useFakeTimers();
+    stubFetch((url, init) => (url === FEED ? hang(init) : Promise.resolve(new Response('x', { status: 500 }))));
+    const p = fetchWithProxy(FEED).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(15_000);
+    const err = (await p) as FetchAllFailedError;
+    expect(err).toBeInstanceOf(FetchAllFailedError);
+    expect(err.attempts.map((a) => a.via)).toEqual(ALL_VIAS);
+    expect(err.attempts[0]?.error).toBe('timed out after 15000 ms');
+    expect(err.attempts[1]?.error).toBe('HTTP 500');
   });
 });
 
@@ -266,7 +375,7 @@ describe('failure cooldown', () => {
 
   it('ignores cooldowns when every attempt is cooling down', async () => {
     stubFetch(() => new Response(RSS));
-    for (const id of ['direct', 'local', 'allorigins', 'corsproxy', 'codetabs', 'rss2json'] as const) {
+    for (const id of ['direct', 'local', 'jina', 'alloriginsget', 'allorigins', 'corsproxy', 'codetabs', 'rss2json'] as const) {
       recordFailure(id);
       recordFailure(id);
       recordFailure(id);

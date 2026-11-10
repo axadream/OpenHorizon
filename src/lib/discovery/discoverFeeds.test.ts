@@ -121,6 +121,37 @@ describe('discoverFeeds', () => {
     expect(await discoverFeeds('https://example.com/')).toEqual([]);
   });
 
+  it('validates at most 12 relative anchors, returns the verified ones first and offers the rest unverified', async () => {
+    const PAGE = 'https://www1.cbn.com/rss-feeds';
+    const names = Array.from({ length: 15 }, (_, i) => `rss-cbn-news-${i + 1}.xml`);
+    const html = `<!DOCTYPE html><html><body>${names.map((n, i) => `<a href="${n}">CBN feed ${i + 1}</a>`).join('')}</body></html>`;
+    // The page is served the way a jina-style reader returns it; the origin itself is blocked.
+    routes[PAGE] = { body: html };
+    routes[`https://r.jina.ai/${PAGE}`] = { body: html };
+    for (const i of [1, 2, 3]) routes[`https://www1.cbn.com/rss-cbn-news-${i}.xml`] = { body: RSS };
+
+    const onProgress = vi.fn();
+    const out = await discoverFeeds(PAGE, { onProgress });
+
+    const first3 = [1, 2, 3].map((i) => `https://www1.cbn.com/rss-cbn-news-${i}.xml`);
+    expect(out.slice(0, 3).map((c) => c.url)).toEqual(first3);
+    expect(out.slice(0, 3).every((c) => c.verified === true && c.source === 'anchor')).toBe(true);
+    expect(out.slice(3).every((c) => c.verified === false)).toBe(true);
+
+    // Probe fetches per candidate: only candidates 1..12 are ever requested.
+    const probed = new Set<number>();
+    for (const call of vi.mocked(fetch).mock.calls) {
+      const m = /rss-cbn-news-(\d+)\.xml/.exec(String(call[0]));
+      if (m) probed.add(Number(m[1]));
+    }
+    expect(probed.size).toBeLessThanOrEqual(12);
+    expect([...probed].every((i) => i <= 12)).toBe(true);
+
+    expect(onProgress).toHaveBeenCalledWith(1, 2, 'Fetching page');
+    expect(onProgress).toHaveBeenCalledWith(2, 14, 'Reading links');
+    expect(onProgress).toHaveBeenLastCalledWith(14, 14, 'Checking feeds');
+  });
+
   it('rejects an invalid address', async () => {
     await expect(discoverFeeds('   ')).rejects.toThrow();
   });

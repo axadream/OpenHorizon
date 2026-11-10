@@ -65,7 +65,9 @@ Browsers block most feed requests made across websites (CORS), so OpenHorizon ha
 1. a direct fetch from your browser,
 2. your own proxy, set with `VITE_CORS_PROXY`,
 3. the built-in same-origin `/api/proxy`, when the app is hosted with serverless functions,
-4. public proxies: allorigins, corsproxy, codetabs and rss2json (last, feeds only).
+4. public proxies, in this order: jina reader (r.jina.ai), allorigins (JSON and raw), corsproxy, codetabs and rss2json (last, feeds only).
+
+Routes are hedged: when a route has not answered after 2.5 seconds the next one starts too, and the first success wins.
 
 The GitHub Pages demo has no server, so some feeds may fail there. For reliable results, host your own proxy. The repository includes these options:
 

@@ -1,22 +1,37 @@
-export type ProxyId = 'env' | 'local' | 'allorigins' | 'corsproxy' | 'codetabs' | 'rss2json';
+export type ProxyId =
+  | 'env'
+  | 'local'
+  | 'jina'
+  | 'alloriginsget'
+  | 'allorigins'
+  | 'corsproxy'
+  | 'codetabs'
+  | 'rss2json';
 
 export interface ProxyDef {
   id: ProxyId;
   build(url: string): string;
   /** true when custom/conditional request headers survive the hop (env and local only). */
   passesHeaders: boolean;
-  /** 'raw' (default): the response body is the feed. 'rss2json': the body is rss2json JSON, converted to JSON Feed. */
-  kind?: 'raw' | 'rss2json';
+  /** Extra request headers this route needs (jina: `X-Return-Format: html` returns the page HTML as-is). */
+  extraHeaders?: Record<string, string>;
+  /**
+   * 'raw' (default): the response body is the feed.
+   * 'rss2json': the body is rss2json JSON, converted to JSON Feed.
+   * 'allorigins-json': the body is allorigins `/get` JSON `{ contents, status }`; `contents` is the feed.
+   */
+  kind?: 'raw' | 'rss2json' | 'allorigins-json';
   /** Per-proxy timeout. Public proxies are often slow or dead, so they get a shorter one. */
   timeoutMs?: number;
 }
 
-/** Timeout for the public third-party proxies (allorigins, corsproxy, codetabs, rss2json). */
+/** Timeout for the public third-party proxies (jina, allorigins, corsproxy, codetabs, rss2json). */
 const PUBLIC_PROXY_TIMEOUT_MS = 8_000;
 
 /**
  * Proxies in attempt order (direct is handled by fetchWithProxy and always comes first):
- * env (`VITE_CORS_PROXY`) -> local (same-origin `/api/proxy`) -> allorigins -> corsproxy
+ * env (`VITE_CORS_PROXY`) -> local (same-origin `/api/proxy`) -> jina (r.jina.ai, HTML)
+ * -> alloriginsget (api.allorigins.win/get, JSON) -> allorigins (/raw) -> corsproxy
  * -> codetabs -> rss2json. rss2json is never tried when expecting an HTML page (discovery).
  * `VITE_CORS_PROXY` may contain a `{url}` placeholder; otherwise the encoded URL is appended.
  * `VITE_DISABLE_LOCAL_PROXY=1` omits the local proxy (static hosts without functions).
@@ -39,6 +54,21 @@ export function getProxies(): ProxyDef[] {
       build: (u) => `/api/proxy?url=${encodeURIComponent(u)}`,
     });
   }
+  list.push({
+    id: 'jina',
+    passesHeaders: false,
+    extraHeaders: { 'X-Return-Format': 'html' },
+    timeoutMs: PUBLIC_PROXY_TIMEOUT_MS,
+    // The target is appended raw: r.jina.ai expects the full URL after its host.
+    build: (u) => `https://r.jina.ai/${u}`,
+  });
+  list.push({
+    id: 'alloriginsget',
+    passesHeaders: false,
+    kind: 'allorigins-json',
+    timeoutMs: PUBLIC_PROXY_TIMEOUT_MS,
+    build: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+  });
   list.push({
     id: 'allorigins',
     passesHeaders: false,

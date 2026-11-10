@@ -4,7 +4,14 @@ import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { db } from '@/db/db';
 import { addManualFeedFromXml } from '@/features/feeds/addFeed';
+import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { onFeedSubscribed } from '@/components/dialogs/subscribe';
+
+/** Alert content: a bold title and an optional explanation. */
+interface PasteError {
+  title: string;
+  detail?: string;
+}
 
 /** Subscribe to feed content pasted as text. The feed has no URL, so it is never refreshed. */
 export function PasteXmlTab() {
@@ -16,17 +23,17 @@ export function PasteXmlTab() {
   const [xml, setXml] = useState('');
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PasteError | null>(null);
 
   async function submit(e: FormEvent<HTMLFormElement>): Promise<void> {
     e.preventDefault();
     if (busy) return;
     if (!xml.trim()) {
-      setError('Paste the feed XML or JSON first');
+      setError({ title: 'Paste the feed XML or JSON first' });
       return;
     }
     if (!title.trim()) {
-      setError('Enter a title for this feed');
+      setError({ title: 'Enter a title for this feed' });
       return;
     }
 
@@ -38,7 +45,8 @@ export function PasteXmlTab() {
       await db.feeds.update(feed.id, { title: finalTitle, titleCustomized: 1 });
       onFeedSubscribed({ ...feed, title: finalTitle });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'This does not look like a feed.');
+      const diagnosis = diagnoseFetchError(err, { online: navigator.onLine });
+      setError({ title: diagnosis.title, detail: diagnosis.detail || undefined });
     } finally {
       setBusy(false);
     }
@@ -88,7 +96,10 @@ export function PasteXmlTab() {
       {error ? (
         <div id={errorId} role="alert" className="flex items-start gap-2 text-sm text-danger">
           <AlertTriangle aria-hidden="true" size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="font-semibold">{error.title}</span>
+            {error.detail ? <span className="text-text">{error.detail}</span> : null}
+          </div>
         </div>
       ) : null}
 

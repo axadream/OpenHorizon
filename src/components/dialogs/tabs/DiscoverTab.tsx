@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { useFeeds } from '@/features/feeds/feedQueries';
 import { AlreadySubscribedError, addFeedFromUrl } from '@/features/feeds/addFeed';
 import { discoverFeeds, type FeedCandidate } from '@/lib/discovery/discoverFeeds';
-import { FetchAllFailedError } from '@/lib/proxy/fetchWithProxy';
+import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { hostname, normalizeFeedUrl } from '@/lib/url';
 import type { FeedKind } from '@/lib/parser/types';
 import { toast } from '@/lib/toast';
@@ -27,9 +27,15 @@ const KIND_LABEL: Record<FeedKind, string> = {
   json: 'JSON',
 };
 
-function describeError(err: unknown): string {
-  if (err instanceof FetchAllFailedError) return "Couldn't reach this website. Check the address and try again.";
-  return err instanceof Error ? err.message : 'Something went wrong. Try again.';
+/** Message shown in the search alert: a bold title and an optional explanation. */
+interface SearchError {
+  title: string;
+  detail?: string;
+}
+
+function describeError(err: unknown): SearchError {
+  const diagnosis = diagnoseFetchError(err, { online: navigator.onLine });
+  return { title: diagnosis.title, detail: diagnosis.detail || undefined };
 }
 
 interface CandidateRowProps {
@@ -85,7 +91,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
   const [site, setSite] = useState(initialUrl);
   const [results, setResults] = useState<FeedCandidate[] | null>(null);
   const [searching, setSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<SearchError | null>(null);
   const [adding, setAdding] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -116,7 +122,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
   function submit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault();
     if (!site.trim()) {
-      setError('Enter a website address');
+      setError({ title: 'Enter a website address' });
       return;
     }
     void run(site);
@@ -131,7 +137,8 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
       if (err instanceof AlreadySubscribedError) {
         toast.info("You're already subscribed to this feed.");
       } else {
-        toast.error("Couldn't add this feed", { description: describeError(err) });
+        const { title, detail } = describeError(err);
+        toast.error("Couldn't add this feed", { description: detail ? `${title} ${detail}` : title });
       }
     } finally {
       setAdding(null);
@@ -169,9 +176,10 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
       </form>
 
       {error ? (
-        <p role="alert" className="text-sm text-danger">
-          {error}
-        </p>
+        <div role="alert" className="flex flex-col gap-1 text-sm text-danger">
+          <span className="font-semibold">{error.title}</span>
+          {error.detail ? <span className="text-text">{error.detail}</span> : null}
+        </div>
       ) : null}
 
       {searching ? (
@@ -201,7 +209,7 @@ export function DiscoverTab({ initialUrl = '', notice }: DiscoverTabProps) {
 
       {!searching && results && results.length === 0 && !error ? (
         <p role="status" className="text-sm text-text-muted">
-          No feeds found. Try pasting the feed URL directly.
+          <span className="font-semibold text-text">No feeds found on this page.</span> Try the feed URL directly.
         </p>
       ) : null}
     </div>

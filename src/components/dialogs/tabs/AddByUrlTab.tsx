@@ -6,6 +6,7 @@ import { Switch } from '@/components/ui/Switch';
 import { db } from '@/db/db';
 import { AlreadySubscribedError, addFeedFromUrl } from '@/features/feeds/addFeed';
 import { FetchAllFailedError } from '@/lib/proxy/fetchWithProxy';
+import { diagnoseFetchError } from '@/lib/proxy/diagnose';
 import { NotAFeedError } from '@/lib/parser/types';
 import { FolderPicker, resolveFolderId } from '@/components/dialogs/FolderPicker';
 import { onFeedSubscribed, showFeed, toHttpUrl } from '@/components/dialogs/subscribe';
@@ -17,7 +18,10 @@ export interface AddByUrlTabProps {
 }
 
 interface UrlError {
-  message: string;
+  title: string;
+  detail?: string;
+  /** Labels of the routes that were tried, shown under the diagnosis. */
+  routes?: string[];
   duplicateFeedId?: string;
 }
 
@@ -25,6 +29,8 @@ const VIA_LABEL: Record<string, string> = {
   direct: 'direct',
   env: 'custom proxy',
   local: 'built-in proxy',
+  jina: 'jina reader',
+  alloriginsget: 'allorigins (json)',
   allorigins: 'allorigins',
   corsproxy: 'corsproxy',
   codetabs: 'codetabs',
@@ -33,13 +39,17 @@ const VIA_LABEL: Record<string, string> = {
 
 function describeError(err: unknown): UrlError {
   if (err instanceof AlreadySubscribedError) {
-    return { message: "You're already subscribed to this feed.", duplicateFeedId: err.feedId };
+    return { title: "You're already subscribed to this feed.", duplicateFeedId: err.feedId };
   }
+  const diagnosis = diagnoseFetchError(err, { online: navigator.onLine });
   if (err instanceof FetchAllFailedError) {
-    const routes = err.attempts.map((a) => VIA_LABEL[a.via] ?? a.via);
-    return { message: `Couldn't reach this URL (tried ${routes.join(', ')}).` };
+    return {
+      title: diagnosis.title,
+      detail: diagnosis.detail,
+      routes: err.attempts.map((a) => VIA_LABEL[a.via] ?? a.via),
+    };
   }
-  return { message: err instanceof Error ? err.message : 'Something went wrong. Try again.' };
+  return { title: diagnosis.title, detail: diagnosis.detail || undefined };
 }
 
 export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
@@ -65,7 +75,7 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
 
     const target = toHttpUrl(url);
     if (!target) {
-      setError({ message: url.trim() ? 'Enter a valid web address' : 'Enter a feed URL' });
+      setError({ title: url.trim() ? 'Enter a valid web address' : 'Enter a feed URL' });
       return;
     }
 
@@ -132,9 +142,15 @@ export function AddByUrlTab({ initialUrl = '', onNotAFeed }: AddByUrlTabProps) {
       </div>
 
       {error ? (
-        <div id={errorId} role="alert" className="flex flex-wrap items-center gap-2 text-sm text-danger">
-          <AlertTriangle aria-hidden="true" size={16} strokeWidth={1.75} className="shrink-0" />
-          <span>{error.message}</span>
+        <div id={errorId} role="alert" className="flex flex-wrap items-start gap-2 text-sm text-danger">
+          <AlertTriangle aria-hidden="true" size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="font-semibold">{error.title}</span>
+            {error.detail ? <span className="text-text">{error.detail}</span> : null}
+            {error.routes && error.routes.length > 0 ? (
+              <p className="text-xs text-text-muted">Tried: {error.routes.join(', ')}</p>
+            ) : null}
+          </div>
           {error.duplicateFeedId ? (
             <Button type="button" variant="ghost" size="sm" onClick={() => showFeed(error.duplicateFeedId ?? '')}>
               Show feed

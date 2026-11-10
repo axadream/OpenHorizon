@@ -347,7 +347,7 @@ export function getProxies(): ProxyDef[] {
 }
 ```
 ```
-Order of attempts: **direct → env (if set) → local (unless disabled) → allorigins → corsproxy → codetabs → rss2json**. rss2json is skipped when `expectHtml` is set (discovery of HTML pages). ("Env goes first" means first among proxies; a direct CORS-enabled fetch is always cheaper and preserves headers, so it is tried before any proxy.) In the SW, `import.meta.env.VITE_CORS_PROXY` is also available (Vite injects env into the SW build with vite-plugin-pwa injectManifest).
+Order of attempts: **direct → env (if set) → local (unless disabled) → jina → alloriginsget → allorigins → corsproxy → codetabs → rss2json**. Attempts are hedged: the next route starts when the running one fails or has not settled after `HEDGE_MS` = 2500 ms; the first success wins and the others are aborted (aborted losers are not recorded as failures). rss2json is skipped when `expectHtml` is set (discovery of HTML pages). ("Env goes first" means first among proxies; a direct CORS-enabled fetch is always cheaper and preserves headers, so it is tried before any proxy.) In the SW, `import.meta.env.VITE_CORS_PROXY` is also available (Vite injects env into the SW build with vite-plugin-pwa injectManifest).
 
 ### 5.2 Failure memory — `failureMemory.ts`
 

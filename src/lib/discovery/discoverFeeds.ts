@@ -20,6 +20,12 @@ export interface DiscoverOptions {
   signal?: AbortSignal;
   /** Default true: probe candidates and keep only those that parse as feeds. */
   validate?: boolean;
+  /**
+   * Progress for a progress bar. `total` = 2 + the number of link/anchor candidates to validate
+   * (2 when validate is false), known only after the page is read: the 'Fetching page' call uses 2.
+   * Labels: 'Fetching page', 'Reading links', 'Checking feeds'.
+   */
+  onProgress?: (done: number, total: number, label: string) => void;
 }
 
 const DISCOVER_ACCEPT = 'text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,*/*';
@@ -46,6 +52,8 @@ const WELL_KNOWN_PATHS = [
 ];
 const MAX_ANCHORS = 30;
 const PROBE_LIMIT = 4;
+/** At most this many link-tag/anchor candidates are probed; the rest are returned unverified. */
+const MAX_VALIDATE = 12;
 const VALIDATE_CONCURRENCY = 3;
 const VALIDATE_TIMEOUT_MS = 10_000;
 
@@ -67,6 +75,8 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   // Step 2: fetch. Errors (FetchAllFailedError) propagate to the caller.
   const res = await fetchWithProxy(url.href, { accept: DISCOVER_ACCEPT, expectHtml: true, signal: opts.signal });
   throwIfAborted(opts.signal);
+  // The candidate count is not known yet, so the page step reports the minimum total.
+  opts.onProgress?.(1, 2, 'Fetching page');
 
   // Step 3: the URL itself is a feed.
   const direct = await tryParse(res.text, res.finalUrl);
@@ -79,6 +89,11 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   const base = resolveBase(doc, res.finalUrl);
   const linkCands = collectLinkTags(doc, base);
   const anchorCands = collectAnchors(doc, base);
+  const allCands = dedupe([...linkCands, ...anchorCands]);
+  const toValidate = validate ? allCands.slice(0, MAX_VALIDATE) : [];
+  const deferred = validate ? allCands.slice(MAX_VALIDATE) : [];
+  const total = 2 + toValidate.length;
+  opts.onProgress?.(2, total, 'Reading links');
 
   // Step 5: platform hints and well-known paths (origin and input path).
   const wellKnown = dedupe([...platformCandidates(url, res.text), ...wellKnownCandidates(url)]);
@@ -87,11 +102,15 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
     return dedupe([...linkCands, ...anchorCands, ...wellKnown]);
   }
 
-  // Step 6: validate link-tag/anchor candidates (concurrency 3), then probe at most
-  // PROBE_LIMIT well-known candidates sequentially, stopping at the first success.
-  const validatedLinks = await mapLimit(dedupe([...linkCands, ...anchorCands]), VALIDATE_CONCURRENCY, (c) =>
-    validateCandidate(c, opts.signal),
-  );
+  // Step 6: validate the first MAX_VALIDATE link-tag/anchor candidates (concurrency 3), then probe
+  // at most PROBE_LIMIT well-known candidates sequentially, stopping at the first success.
+  let done = 2;
+  const validatedLinks = await mapLimit(toValidate, VALIDATE_CONCURRENCY, async (c) => {
+    const result = await validateCandidate(c, opts.signal);
+    done++;
+    opts.onProgress?.(done, total, 'Checking feeds');
+    return result;
+  });
 
   let wellKnownHit: FeedCandidate | null = null;
   for (const c of wellKnown.slice(0, PROBE_LIMIT)) {
@@ -106,7 +125,10 @@ export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): 
   const ordered: FeedCandidate[] = [];
   for (const c of validatedLinks) if (c) ordered.push(c);
   if (wellKnownHit) ordered.push(wellKnownHit);
-  if (ordered.length > 0) return dedupe(ordered);
+  if (ordered.length > 0) {
+    // Candidates beyond MAX_VALIDATE are offered after the verified ones, unverified.
+    return dedupe([...ordered, ...deferred.map((c) => ({ ...c, verified: false }))]);
+  }
 
   // No probe succeeded (proxies may all be down): offer the unvalidated link/anchor candidates.
   throwIfAborted(opts.signal);
