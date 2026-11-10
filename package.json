@@ -1,0 +1,59 @@
+{
+    "name": "openhorizon",
+    "private": false,
+    "version": "0.1.0",
+    "license": "GPL-3.0-or-later",
+    "homepage": "https://axadream.github.io/OpenHorizon/",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc -b && vite build",
+        "build:pages": "cross-env VITE_BASE=/OpenHorizon/ VITE_DISABLE_LOCAL_PROXY=1 vite build",
+        "deploy": "tsc -b && npm run build:pages && gh-pages -d dist --nojekyll",
+        "lint": "oxlint",
+        "preview": "vite preview",
+        "typecheck": "tsc --noEmit -p tsconfig.app.json",
+        "test": "vitest run",
+        "proxy": "node server/proxy.mjs"
+    },
+    "dependencies": {
+        "clsx": "^2.1.1",
+        "dexie": "^4.4.7",
+        "dexie-react-hooks": "^4.4.0",
+        "dompurify": "^3.4.17",
+        "lucide-react": "^1.71.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+        "tailwind-merge": "^3.7.0",
+        "zustand": "^5.1.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.3.5",
+        "@types/node": "^24.19.2",
+        "@types/react": "^19.3.0",
+        "@types/react-dom": "^19.3.0",
+        "@vitejs/plugin-react": "^6.1.2",
+        "@xmldom/xmldom": "^0.9.12",
+        "cross-env": "^10.1.0",
+        "fake-indexeddb": "^6.2.8",
+        "gh-pages": "^6.3.0",
+        "jsdom": "^29.1.1",
+        "oxlint": "^1.90.0",
+        "sharp": "^0.35.5",
+        "tailwindcss": "^4.3.5",
+        "typescript": "~7.0.2",
+        "vite": "^8.3.6",
+        "vite-plugin-pwa": "^2.0.0",
+        "vitest": "^5.1.0",
+        "workbox-core": "^7.4.1",
+        "workbox-expiration": "^7.4.1",
+        "workbox-precaching": "^7.4.1",
+        "workbox-routing": "^7.4.1",
+        "workbox-strategies": "^7.4.1",
+        "workbox-window": "^7.4.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/axadream/OpenHorizon.git"
+    }
+}

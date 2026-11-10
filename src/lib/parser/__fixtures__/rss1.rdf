@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns="http://purl.org/rss/1.0/"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel rdf:about="https://rdf.example.net/">
+    <title>RDF Digest</title>
+    <link>https://rdf.example.net/</link>
+    <description>Weekly digest</description>
+    <dc:language>fr</dc:language>
+    <image rdf:resource="https://rdf.example.net/logo.gif"/>
+    <items>
+      <rdf:Seq>
+        <rdf:li rdf:resource="https://rdf.example.net/item/1"/>
+        <rdf:li rdf:resource="https://rdf.example.net/item/2"/>
+      </rdf:Seq>
+    </items>
+  </channel>
+  <item rdf:about="https://rdf.example.net/item/1">
+    <title>Premier article</title>
+    <link>https://rdf.example.net/item/1</link>
+    <description>Résumé court.</description>
+    <dc:date>2026-11-05T07:30:00+00:00</dc:date>
+    <dc:creator>Équipe RDF</dc:creator>
+    <dc:subject>digest</dc:subject>
+    <content:encoded><![CDATA[<h2>Titre</h2><p>Corps <a href="/x">lien</a></p>]]></content:encoded>
+  </item>
+  <item rdf:about="https://rdf.example.net/item/2">
+    <title>Second</title>
+    <link>https://rdf.example.net/item/2</link>
+    <description>Second summary</description>
+    <dc:date>not a date</dc:date>
+  </item>
+</rdf:RDF>

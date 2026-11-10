@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>OpenHorizon</title>
+    <script>
+      // GitHub Pages serves this page for unknown paths. Send the visitor back to the app root
+      // (e.g. /OpenHorizon/) and keep the query and hash so SPA routes and boot URLs still work.
+      (function () {
+        var p = location.pathname;
+        var root = p === '/' ? '/' : p.split('/').slice(0, 2).join('/') + '/';
+        location.replace(root + location.search + location.hash);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to OpenHorizon... <a href="./">Continue</a></p>
+  </body>
+</html>

@@ -1,0 +1,244 @@
+import { parseFeed } from '@/lib/parser/parseFeed';
+import type { FeedKind } from '@/lib/parser/types';
+import { normalizeFeedUrl, resolveUrl } from '@/lib/url';
+import { parseHtml } from '@/lib/xml/dom';
+import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
+
+export interface FeedCandidate {
+  url: string;
+  title?: string;
+  kind?: FeedKind;
+  source: 'link-tag' | 'anchor' | 'well-known' | 'direct';
+}
+
+export interface DiscoverOptions {
+  signal?: AbortSignal;
+  /** Default true: probe candidates and keep only those that parse as feeds. */
+  validate?: boolean;
+}
+
+const DISCOVER_ACCEPT = 'text/html,application/xhtml+xml,application/rss+xml,application/atom+xml,*/*';
+const FEED_TYPES = new Set(['application/rss+xml', 'application/atom+xml', 'application/feed+json', 'text/xml', 'application/xml']);
+const ANCHOR_RE = /(\/feed|\/rss|\/atom|\.rss|\.xml|feed\.json|\/feeds?\/)(\?|$|\/)/i;
+const WELL_KNOWN_PATHS = [
+  '/feed',
+  '/feed/',
+  '/rss',
+  '/rss.xml',
+  '/atom.xml',
+  '/feed.xml',
+  '/index.xml',
+  '/feed.json',
+  '/feeds/posts/default',
+  '/?feed=rss2',
+];
+const MAX_ANCHORS = 10;
+const PROBE_LIMIT = 4;
+const VALIDATE_CONCURRENCY = 3;
+const VALIDATE_TIMEOUT_MS = 10_000;
+
+interface Probe {
+  kind: FeedKind;
+  title?: string;
+}
+
+/** Discover feeds for a page or URL. Returns [] when nothing usable is found. */
+export async function discoverFeeds(input: string, opts: DiscoverOptions = {}): Promise<FeedCandidate[]> {
+  const validate = opts.validate ?? true;
+  const url = toUrl(input);
+  throwIfAborted(opts.signal);
+
+  // Step 2: fetch. Errors (FetchAllFailedError) propagate to the caller.
+  const res = await fetchWithProxy(url.href, { accept: DISCOVER_ACCEPT, expectHtml: true, signal: opts.signal });
+  throwIfAborted(opts.signal);
+
+  // Step 3: the URL itself is a feed.
+  const direct = await tryParse(res.text, res.finalUrl);
+  if (direct) {
+    return [{ url: res.finalUrl, title: direct.title || undefined, kind: direct.kind, source: 'direct' }];
+  }
+
+  // Step 4: HTML page -> <link rel=alternate> and feed-looking anchors.
+  const doc = parseHtml(res.text);
+  const base = resolveBase(doc, res.finalUrl);
+  const linkCands = collectLinkTags(doc, base);
+  const anchorCands = collectAnchors(doc, base);
+
+  // Step 5: platform hints and well-known paths (origin and input path).
+  const wellKnown = dedupe([...platformCandidates(url, res.text), ...wellKnownCandidates(url)]);
+
+  if (!validate) {
+    return dedupe([...linkCands, ...anchorCands, ...wellKnown]);
+  }
+
+  // Step 6: validate link-tag/anchor candidates (concurrency 3), then probe at most
+  // PROBE_LIMIT well-known candidates sequentially, stopping at the first success.
+  const validatedLinks = await mapLimit(dedupe([...linkCands, ...anchorCands]), VALIDATE_CONCURRENCY, (c) =>
+    validateCandidate(c, opts.signal),
+  );
+
+  let wellKnownHit: FeedCandidate | null = null;
+  for (const c of wellKnown.slice(0, PROBE_LIMIT)) {
+    throwIfAborted(opts.signal);
+    const probe = await probeUrl(c.url, opts.signal);
+    if (probe) {
+      wellKnownHit = { ...c, kind: probe.kind, title: c.title ?? probe.title };
+      break;
+    }
+  }
+
+  const ordered: FeedCandidate[] = [];
+  for (const c of validatedLinks) if (c) ordered.push(c);
+  if (wellKnownHit) ordered.push(wellKnownHit);
+  return dedupe(ordered);
+}
+
+function toUrl(input: string): URL {
+  const trimmed = input.trim();
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  let u: URL;
+  try {
+    u = new URL(withScheme);
+  } catch {
+    throw new Error('Enter a valid web address');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Enter a valid web address');
+  return u;
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('The operation was aborted.', 'AbortError');
+}
+
+async function tryParse(text: string, sourceUrl: string): Promise<{ kind: FeedKind; title: string } | null> {
+  try {
+    const parsed = await parseFeed(text, sourceUrl);
+    return { kind: parsed.kind, title: parsed.title };
+  } catch {
+    return null;
+  }
+}
+
+async function probeUrl(url: string, signal?: AbortSignal): Promise<Probe | null> {
+  try {
+    const res = await fetchWithProxy(url, { timeoutMs: VALIDATE_TIMEOUT_MS, signal });
+    const parsed = await parseFeed(res.text, res.finalUrl);
+    return { kind: parsed.kind, title: parsed.title || undefined };
+  } catch {
+    return null;
+  }
+}
+
+async function validateCandidate(c: FeedCandidate, signal?: AbortSignal): Promise<FeedCandidate | null> {
+  const probe = await probeUrl(c.url, signal);
+  if (!probe) return null;
+  return { ...c, kind: probe.kind, title: c.title ?? probe.title };
+}
+
+function absolute(href: string, base: string): string | null {
+  const r = resolveUrl(href, base);
+  return r && /^https?:\/\//i.test(r) ? r : null;
+}
+
+function resolveBase(doc: Document, fallback: string): string {
+  const baseEl = doc.getElementsByTagName('base')[0];
+  const href = baseEl?.getAttribute('href')?.trim();
+  if (!href) return fallback;
+  return absolute(href, fallback) ?? fallback;
+}
+
+function collectLinkTags(doc: Document, base: string): FeedCandidate[] {
+  const out: FeedCandidate[] = [];
+  for (const el of Array.from(doc.getElementsByTagName('link'))) {
+    const rel = (el.getAttribute('rel') ?? '').toLowerCase().split(/\s+/);
+    if (!rel.includes('alternate')) continue;
+    const type = (el.getAttribute('type') ?? '').trim().toLowerCase();
+    const href = (el.getAttribute('href') ?? '').trim();
+    const title = (el.getAttribute('title') ?? '').trim();
+    if (!href) continue;
+    const isFeed = FEED_TYPES.has(type) || (type === 'application/json' && /feed|json/i.test(`${title} ${href}`));
+    if (!isFeed) continue;
+    const u = absolute(href, base);
+    if (!u) continue;
+    out.push({ url: u, title: title || undefined, source: 'link-tag' });
+  }
+  return out;
+}
+
+function collectAnchors(doc: Document, base: string): FeedCandidate[] {
+  const out: FeedCandidate[] = [];
+  for (const a of Array.from(doc.getElementsByTagName('a'))) {
+    if (out.length >= MAX_ANCHORS) break;
+    const href = (a.getAttribute('href') ?? '').trim();
+    if (!href) continue;
+    const u = absolute(href, base);
+    if (!u || !ANCHOR_RE.test(u)) continue;
+    out.push({ url: u, source: 'anchor' });
+  }
+  return out;
+}
+
+function platformCandidates(input: URL, html: string): FeedCandidate[] {
+  const host = input.hostname.toLowerCase().replace(/^www\./, '');
+  const path = input.pathname;
+  const urls: string[] = [];
+
+  if (host === 'youtube.com') {
+    const channelId =
+      /^\/channel\/(UC[\w-]+)/.exec(path)?.[1] ??
+      /"channelId":"(UC[\w-]+)"/.exec(html)?.[1] ??
+      /<meta itemprop="channelId" content="(UC[\w-]+)"/.exec(html)?.[1];
+    const user = /^\/user\/([^/?#]+)/.exec(path)?.[1];
+    if (channelId) urls.push(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`);
+    else if (user) urls.push(`https://www.youtube.com/feeds/videos.xml?user=${user}`);
+  } else if (host === 'reddit.com') {
+    const sub = /^\/r\/([^/?#]+)/.exec(path)?.[1];
+    if (sub) urls.push(`https://www.reddit.com/r/${sub}/.rss`);
+  } else if (host === 'medium.com') {
+    const author = /^\/(@[^/?#]+)/.exec(path)?.[1];
+    if (author) urls.push(`https://medium.com/feed/${author}`);
+  } else if (host === 'github.com') {
+    const m = /^\/([^/?#]+)\/([^/?#]+?)\/?$/.exec(path);
+    if (m) {
+      urls.push(`https://github.com/${m[1]}/${m[2]}/releases.atom`, `https://github.com/${m[1]}/${m[2]}/commits.atom`);
+    }
+  }
+
+  return urls.map((u) => ({ url: u, source: 'well-known' as const }));
+}
+
+function wellKnownCandidates(input: URL): FeedCandidate[] {
+  const fromOrigin = WELL_KNOWN_PATHS.map((p) => new URL(p, input.origin).href);
+  const fromPath = WELL_KNOWN_PATHS.map((p) => new URL(p.replace(/^\//, ''), input).href);
+  return [...fromOrigin, ...fromPath].map((u) => ({ url: u, source: 'well-known' as const }));
+}
+
+function dedupe(list: FeedCandidate[]): FeedCandidate[] {
+  const seen = new Set<string>();
+  const out: FeedCandidate[] = [];
+  for (const c of list) {
+    let key: string;
+    try {
+      key = normalizeFeedUrl(c.url);
+    } catch {
+      key = c.url;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
+}
+
+async function mapLimit<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i] as T);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}

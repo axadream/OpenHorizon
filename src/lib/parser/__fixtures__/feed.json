@@ -1,0 +1,38 @@
+{
+  "version": "https://jsonfeed.org/version/1.1",
+  "title": "JSON Dispatch",
+  "home_page_url": "https://json.example.io/",
+  "feed_url": "https://json.example.io/feed.json",
+  "description": "JSON feed sample",
+  "icon": "https://json.example.io/icon.png",
+  "favicon": "https://json.example.io/favicon.ico",
+  "language": "en",
+  "items": [
+    {
+      "id": "7",
+      "url": "https://json.example.io/2026/11/first",
+      "title": "First post",
+      "content_html": "<p>Rich <em>html</em> <img src=\"/img/first.jpg\" width=\"600\"></p>",
+      "content_text": "ignored when html is present",
+      "summary": "A short summary",
+      "image": "https://json.example.io/img/banner.jpg",
+      "date_published": "2026-11-04T12:00:00Z",
+      "authors": [{ "name": "Kim Otto" }],
+      "tags": ["json", "feeds"],
+      "attachments": [
+        { "url": "https://json.example.io/ep1.mp3", "mime_type": "audio/mpeg", "size_in_bytes": 4096 }
+      ]
+    },
+    {
+      "id": "8",
+      "external_url": "https://other.example.io/linked",
+      "content_text": "Plain <text> & stuff",
+      "date_modified": "2026-11-03T08:00:00Z",
+      "author": { "name": "Legacy Author" }
+    },
+    {
+      "id": "9",
+      "content_text": "Only text here. Another sentence that is quite long."
+    }
+  ]
+}
