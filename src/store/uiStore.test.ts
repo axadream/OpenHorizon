@@ -113,7 +113,13 @@ describe('dialogs', () => {
     s.openDialog('share', { title: 'T', url: 'https://example.com/a' });
     expect(useUiStore.getState().dialogs.share).toEqual({ title: 'T', url: 'https://example.com/a' });
     s.closeAllDialogs();
-    expect(useUiStore.getState().dialogs).toEqual({ addFeed: false, settings: false, share: null, changelog: false });
+    expect(useUiStore.getState().dialogs).toEqual({
+      addFeed: false,
+      settings: false,
+      share: null,
+      changelog: false,
+      articleActions: false,
+    });
   });
 });
 

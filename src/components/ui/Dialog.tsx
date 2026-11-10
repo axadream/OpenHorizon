@@ -12,6 +12,11 @@ export interface DialogProps {
   children?: ReactNode;
   /** Footer content, right-aligned. */
   footer?: ReactNode;
+  /**
+   * 'responsive' (default): centred panel, becomes a bottom sheet below md.
+   * 'bottom': always a bottom sheet, with a drag handle. Used by the article action sheet.
+   */
+  placement?: 'responsive' | 'bottom';
   className?: string;
 }
 
@@ -19,12 +24,13 @@ export interface DialogProps {
  * Modal dialog on the native <dialog> element (showModal gives the focus trap, Escape
  * and the inert background). Escape and backdrop clicks report through onOpenChange.
  * Focus returns to the element that was focused before opening.
- * Below md it becomes a bottom sheet.
+ * Below md it becomes a bottom sheet (placement 'responsive'); placement 'bottom' always does.
  */
 export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
-  { open, onOpenChange, title, description, children, footer, className },
+  { open, onOpenChange, title, description, children, footer, placement = 'responsive', className },
   ref,
 ) {
+  const bottom = placement === 'bottom';
   const dialogRef = useRef<HTMLDialogElement>(null);
   useImperativeHandle(ref, () => dialogRef.current as HTMLDialogElement);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -70,11 +76,14 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
         'glass-strong m-auto max-h-[calc(100dvh_-_32px)] w-[min(560px,calc(100vw_-_32px))] max-w-none overflow-hidden rounded-lg p-0 text-silver',
         'animate-pop-in',
         // Mobile: bottom sheet.
-        'max-md:mt-auto max-md:mb-0 max-md:max-h-[92dvh] max-md:w-full max-md:rounded-b-none max-md:rounded-t-xl',
+        !bottom && 'max-md:mt-auto max-md:mb-0 max-md:max-h-[92dvh] max-md:w-full max-md:rounded-b-none max-md:rounded-t-xl',
+        // Always bottom sheet.
+        bottom && 'mt-auto mb-0 max-h-[92dvh] w-full rounded-t-xl rounded-b-none',
         className,
       )}
     >
-      <div className="flex max-h-[calc(100dvh_-_32px)] flex-col max-md:max-h-[92dvh]">
+      <div className={cn('flex max-h-[calc(100dvh_-_32px)] flex-col max-md:max-h-[92dvh]', bottom && 'max-h-[92dvh]')}>
+        {bottom ? <div aria-hidden="true" className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border-strong" /> : null}
         <header className="steel hairline-b flex h-13 shrink-0 items-center justify-between gap-3 px-5">
           <h2 id={titleId} className="text-lg font-semibold tracking-[-0.01em] text-text">
             {title}

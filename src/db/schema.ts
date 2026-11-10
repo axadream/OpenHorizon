@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { DB_NAME, STORES_V1 } from './migrations';
+import { DB_NAME, STORES_V1, STORES_V2 } from './migrations';
 
 /** IndexedDB cannot index booleans, so indexed flags are 0 | 1. */
 export type Flag = 0 | 1;
@@ -70,6 +70,16 @@ export interface Settings {
   installDismissedAt: number | null;
 }
 
+/**
+ * Tombstone written when the user deletes one article. syncFeed skips items whose
+ * [feedId+guid] is listed here, so a deleted article is not re-inserted by the next sync.
+ */
+export interface DeletedArticle {
+  feedId: string;
+  guid: string;
+  deletedAt: number;
+}
+
 export interface SettingRow<K extends keyof Settings = keyof Settings> {
   key: K;
   value: Settings[K];
@@ -93,10 +103,12 @@ export class OpenHorizonDB extends Dexie {
   articles!: Table<Article, string>;
   settings!: Table<SettingRow, string>;
   syncLog!: Table<SyncLogEntry, number>;
+  deletedArticles!: Table<DeletedArticle, [string, string]>;
 
   constructor() {
     super(DB_NAME);
     // Index strings are defined once in migrations.ts (ARCHITECTURE §2.1).
     this.version(1).stores(STORES_V1);
+    this.version(2).stores(STORES_V2);
   }
 }

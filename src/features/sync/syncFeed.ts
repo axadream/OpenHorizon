@@ -137,7 +137,7 @@ export async function syncFeed(feed: Feed, ctx: SyncFeedContext): Promise<SyncFe
       initialImport: true,
     };
 
-    await db.transaction('rw', db.articles, db.feeds, async () => {
+    await db.transaction('rw', db.articles, db.feeds, db.deletedArticles, async () => {
       const current = await db.feeds.get(feed.id);
       if (!current) {
         state.feedGone = true;
@@ -149,7 +149,12 @@ export async function syncFeed(feed: Feed, ctx: SyncFeedContext): Promise<SyncFe
       const existing = new Set(
         (await db.articles.where('[feedId+guid]').anyOf(keys).keys()).map((k) => (k as unknown as [string, string])[1]),
       );
-      state.inserted = items.filter((i) => !existing.has(i.guid)).map((i) => toArticle(feed.id, i, now));
+      // Articles the user deleted stay deleted: their tombstones are skipped (ARCHITECTURE §2.5).
+      const tombstones = await db.deletedArticles.bulkGet(keys);
+      const deleted = new Set(keys.filter((_, i) => tombstones[i] !== undefined).map((k) => k[1]));
+      state.inserted = items
+        .filter((i) => !existing.has(i.guid) && !deleted.has(i.guid))
+        .map((i) => toArticle(feed.id, i, now));
       if (state.inserted.length > 0) await db.articles.bulkAdd(state.inserted);
 
       const patch: Partial<Feed> = {

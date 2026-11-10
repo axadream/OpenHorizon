@@ -1,4 +1,5 @@
 import { db } from '@/db/db';
+import type { Article } from '@/db/schema';
 import type { View } from '@/store/types';
 import { queryUnreadIds } from './articleQueries';
 
@@ -107,4 +108,32 @@ export async function markAllRead(view: View): Promise<string[]> {
 /** Undo for markAllRead: marks the given articles unread again. Returns how many changed. */
 export async function undoMarkAllRead(ids: readonly string[]): Promise<number> {
   return markUnread(ids);
+}
+
+/**
+ * Delete one article. Writes a tombstone (so the next sync does not re-insert it) and removes the
+ * row in one transaction. Returns the removed row for restoreArticle, or null when it did not exist.
+ */
+export async function deleteArticle(id: string): Promise<Article | null> {
+  return db.transaction('rw', [db.articles, db.deletedArticles], async () => {
+    const article = await db.articles.get(id);
+    if (!article) return null;
+    await db.deletedArticles.put({ feedId: article.feedId, guid: article.guid, deletedAt: Date.now() });
+    await db.articles.delete(id);
+    return article;
+  });
+}
+
+/**
+ * Undo deleteArticle: re-adds the row and removes its tombstone in one transaction. Returns false
+ * (and writes nothing) when the feed no longer exists, since its articles went with it.
+ */
+export async function restoreArticle(snapshot: Article): Promise<boolean> {
+  return db.transaction('rw', [db.articles, db.feeds, db.deletedArticles], async () => {
+    const feed = await db.feeds.get(snapshot.feedId);
+    if (!feed) return false;
+    await db.deletedArticles.delete([snapshot.feedId, snapshot.guid]);
+    await db.articles.put(snapshot);
+    return true;
+  });
 }

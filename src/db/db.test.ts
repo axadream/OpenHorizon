@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from './db';
 
-function indexSources(table: keyof typeof expected): string[] {
+function indexSources(table: string): string[] {
   return db.table(table).schema.indexes.map(i => i.src).sort();
 }
 
@@ -24,14 +24,26 @@ const expected = {
   syncLog: ['feedId', 'startedAt', '[feedId+startedAt]'],
 } as const;
 
-describe('database schema (version 1)', () => {
+describe('database schema (version 2)', () => {
   beforeEach(async () => {
     await db.open();
   });
 
-  it('opens at version 1 with the expected tables', () => {
-    expect(db.verno).toBe(1);
-    expect(db.tables.map(t => t.name).sort()).toEqual(['articles', 'feeds', 'folders', 'settings', 'syncLog']);
+  it('opens at version 2 with the expected tables', () => {
+    expect(db.verno).toBe(2);
+    expect(db.tables.map(t => t.name).sort()).toEqual([
+      'articles',
+      'deletedArticles',
+      'feeds',
+      'folders',
+      'settings',
+      'syncLog',
+    ]);
+  });
+
+  it('keys tombstones by [feedId+guid] with the feed and trim indexes', () => {
+    expect(db.deletedArticles.schema.primKey.keyPath).toEqual(['feedId', 'guid']);
+    expect(indexSources('deletedArticles').sort()).toEqual(['[feedId+deletedAt]', 'feedId'].sort());
   });
 
   it('uses the primary keys from ARCHITECTURE 2.1', () => {

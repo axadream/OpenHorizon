@@ -1,10 +1,11 @@
-import type { ComponentPropsWithoutRef } from 'react';
+import { useRef, type ComponentPropsWithoutRef } from 'react';
 import { Bookmark, CheckCheck, Inbox, Plus, RefreshCw, Rss, Star } from 'lucide-react';
 import { EmptyState, type EmptyStateProps } from '@/components/ui/EmptyState';
 import { ArticleRowSkeleton } from '@/components/ui/Skeleton';
 import { queryUnreadIds, useArticles } from '@/features/articles/articleQueries';
 import { useFeedMap, useFeeds, useFolders } from '@/features/feeds/feedQueries';
 import { useSetting } from '@/features/settings/settings';
+import { runSyncFromPage } from '@/features/sync/scheduler';
 import { useLive } from '@/hooks/useLive';
 import { cn } from '@/lib/cn';
 import { viewKey, type TimelineFilter, type View } from '@/store/types';
@@ -17,11 +18,20 @@ import {
 } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import { ArticleList } from './ArticleList';
+import { PullToRefreshIndicator } from './PullToRefreshIndicator';
 import { refreshAll, TimelineHeader, TimelineStatus } from './TimelineHeader';
 
 export type TimelinePaneProps = ComponentPropsWithoutRef<'section'>;
 
 const SKELETON_ROWS = 8;
+
+/**
+ * Pull-to-refresh sync. A single feed view syncs only that feed (same as Shift+R); every other view
+ * syncs all feeds, which is what the header Refresh button does.
+ */
+function pullRefresh(view: View): Promise<unknown> {
+  return runSyncFromPage({ manual: true, feedIds: view.type === 'feed' ? [view.feedId] : undefined });
+}
 
 /** Unread count of the current view, from one live query (includes favorites/read-later views). */
 function useViewUnreadCount(view: View): number | undefined {
@@ -96,6 +106,7 @@ export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
   );
   const count = articles?.length ?? 0;
   const canLoadMore = count > 0 && count >= limit;
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   return (
     <section
@@ -107,29 +118,32 @@ export function TimelinePane({ className, ...rest }: TimelinePaneProps) {
       <TimelineHeader view={view} title={title} unreadCount={unreadCount} />
       <TimelineStatus count={count} unreadCount={unreadCount} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        {articles === undefined ? (
-          <div aria-busy="true" className="flex flex-col">
-            <span className="sr-only">Loading articles…</span>
-            {Array.from({ length: SKELETON_ROWS }, (_, i) => (
-              <div key={i} className="hairline-b">
-                <ArticleRowSkeleton />
-              </div>
-            ))}
-          </div>
-        ) : count === 0 ? (
-          <EmptyState {...emptyStateFor(view, filter, feeds === undefined || feeds.length > 0)} />
-        ) : (
-          <ArticleList
-            articles={articles}
-            feedMap={feedMap}
-            label={title}
-            density={density}
-            selectedId={selectedId}
-            recentCutoff={cutoff}
-            canLoadMore={canLoadMore}
-          />
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <PullToRefreshIndicator scrollRef={scrollRef} onRefresh={() => pullRefresh(view)} />
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+          {articles === undefined ? (
+            <div aria-busy="true" className="flex flex-col">
+              <span className="sr-only">Loading articles…</span>
+              {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                <div key={i} className="hairline-b">
+                  <ArticleRowSkeleton />
+                </div>
+              ))}
+            </div>
+          ) : count === 0 ? (
+            <EmptyState {...emptyStateFor(view, filter, feeds === undefined || feeds.length > 0)} />
+          ) : (
+            <ArticleList
+              articles={articles}
+              feedMap={feedMap}
+              label={title}
+              density={density}
+              selectedId={selectedId}
+              recentCutoff={cutoff}
+              canLoadMore={canLoadMore}
+            />
+          )}
+        </div>
       </div>
     </section>
   );

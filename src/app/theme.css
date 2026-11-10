@@ -260,6 +260,13 @@
   }
 }
 
+/* Gestures: while a touch long press is pending, keep the OS callout and text selection off the row
+   so the system menu does not appear over the action sheet (see hooks/useLongPress). */
+[data-long-press='pending'] {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
 /* Reduced motion (DESIGN 3.3) and contrast (DESIGN 8.3). Unlayered so they win over theme tokens. */
 @media (prefers-reduced-motion: reduce) {
   :root {

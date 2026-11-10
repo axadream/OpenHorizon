@@ -1,7 +1,36 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/db/db';
 import type { Article } from '@/db/schema';
-import { pruneFeed } from './retention';
+import { pruneFeed, pruneTombstones, TOMBSTONE_TTL_MS } from './retention';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+describe('pruneTombstones', () => {
+  beforeEach(async () => {
+    await db.deletedArticles.clear();
+  });
+
+  it('drops tombstones older than 90 days for the given feed only', async () => {
+    const now = Date.UTC(2026, 5, 1);
+    await db.deletedArticles.bulkAdd([
+      { feedId: 'f1', guid: 'old', deletedAt: now - TOMBSTONE_TTL_MS - DAY_MS },
+      { feedId: 'f1', guid: 'recent', deletedAt: now - 10 * DAY_MS },
+      { feedId: 'f2', guid: 'old-elsewhere', deletedAt: now - TOMBSTONE_TTL_MS - DAY_MS },
+    ]);
+
+    expect(await pruneTombstones('f1', now)).toBe(1);
+
+    const left = (await db.deletedArticles.toArray()).map((t) => `${t.feedId}/${t.guid}`).sort();
+    expect(left).toEqual(['f1/recent', 'f2/old-elsewhere']);
+  });
+
+  it('runs as part of pruneFeed', async () => {
+    const now = Date.now();
+    await db.deletedArticles.add({ feedId: 'f3', guid: 'ancient', deletedAt: now - TOMBSTONE_TTL_MS - DAY_MS });
+    await pruneFeed('f3', 10);
+    expect(await db.deletedArticles.count()).toBe(0);
+  });
+});
 
 function article(id: string, feedId: string, day: number, flags: Partial<Pick<Article, 'isRead' | 'isReadLater' | 'isFavorite'>> = {}): Article {
   return {

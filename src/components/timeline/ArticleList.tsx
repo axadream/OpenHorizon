@@ -2,6 +2,12 @@ import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'r
 import type { Article, Feed } from '@/db/schema';
 import { Button } from '@/components/ui/Button';
 import { toggleFavorite, toggleReadLater, toggleRead } from '@/features/articles/articleActions';
+import {
+  deleteArticleWithUndo,
+  reportFailure,
+  toggleFavoriteWithToast,
+} from '@/features/articles/articleCommands';
+import type { GesturePoint } from '@/hooks/useLongPress';
 import { setTimelineIds } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import { toast } from '@/lib/toast';
@@ -35,6 +41,18 @@ const onToggleFavorite = (id: string) => report(toggleFavorite(id), 'Could not u
 const onToggleReadLater = (id: string) => report(toggleReadLater(id), 'Could not update read later');
 const onToggleRead = (id: string) => report(toggleRead(id), 'Could not update read state');
 const onLoadMore = () => useUiStore.getState().loadMore();
+
+/* Gestures: swipe right deletes (undoable), swipe left toggles favorite (announced), long press opens the sheet. */
+const onSwipeDelete = (id: string) => void deleteArticleWithUndo(id).catch(reportFailure('Could not delete the article'));
+const onSwipeFavorite = (id: string) => void toggleFavoriteWithToast(id).catch(reportFailure('Could not update favorite'));
+const onOpenActions = (id: string, point: GesturePoint) =>
+  useUiStore.getState().openDialog('articleActions', { articleId: id, x: point.x, y: point.y });
+
+/** Opens the action sheet for a row from the keyboard, anchored to the row's left edge. */
+function openActionsForRow(id: string): void {
+  const rect = document.getElementById(`article-${id}`)?.getBoundingClientRect();
+  onOpenActions(id, rect ? { x: rect.left + 24, y: rect.top + rect.height / 2 } : { x: 0, y: 0 });
+}
 
 /**
  * Listbox of timeline rows (DESIGN §6.4, WAI-ARIA listbox). One tab stop; the "active" row is
@@ -83,6 +101,15 @@ export function ArticleList({ articles, feedMap, label, density, selectedId, rec
           onRowSelect(active);
         }
         return;
+      case 'ContextMenu':
+      case 'F10':
+        // The Menu key and Shift+F10 open the same sheet a long press does. Focus stays on the listbox.
+        if (e.key === 'F10' && !e.shiftKey) return;
+        if (active !== null) {
+          e.preventDefault();
+          openActionsForRow(active);
+        }
+        return;
       default:
         return;
     }
@@ -119,6 +146,9 @@ export function ArticleList({ articles, feedMap, label, density, selectedId, rec
               onToggleFavorite={onToggleFavorite}
               onToggleReadLater={onToggleReadLater}
               onToggleRead={onToggleRead}
+              onSwipeDelete={onSwipeDelete}
+              onSwipeFavorite={onSwipeFavorite}
+              onOpenActions={onOpenActions}
             />
           );
         })}

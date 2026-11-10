@@ -6,6 +6,7 @@ import {
   toggleRead,
   toggleReadLater,
 } from '@/features/articles/articleActions';
+import { deleteArticleWithUndo } from '@/features/articles/articleCommands';
 import { queryUnreadIds } from '@/features/articles/articleQueries';
 import { share } from '@/features/sharing/share';
 import { runSyncFromPage } from '@/features/sync/scheduler';
@@ -30,6 +31,8 @@ export const KEYMAP: readonly KeymapEntry[] = [
   { keys: ['F'], label: 'Toggle favorite' },
   { keys: ['S'], label: 'Share article' },
   { keys: ['V'], label: 'Open original in a new tab' },
+  { keys: ['Delete'], label: 'Delete article (undo available)' },
+  { keys: ['Menu', 'Shift+F10'], label: 'Article actions (same sheet as a long press)' },
   { keys: ['R'], label: 'Refresh all feeds' },
   { keys: ['Shift+R'], label: 'Refresh current feed' },
   { keys: ['A'], label: 'Add feed' },
@@ -44,7 +47,7 @@ export const KEYMAP: readonly KeymapEntry[] = [
 
 const MOBILE_QUERY = '(max-width: 767.98px)';
 const ORDER: readonly MobilePane[] = ['nav', 'timeline', 'reader'];
-const DIALOG_NAMES: readonly DialogName[] = ['addFeed', 'settings', 'share'];
+const DIALOG_NAMES: readonly DialogName[] = ['addFeed', 'settings', 'share', 'articleActions'];
 /** Keys that belong to a control: Enter there must keep its native activation. */
 const INTERACTIVE =
   'button, a[href], input, textarea, select, [role="button"], [role="menuitem"], [role="tab"], [role="radio"], [role="switch"], [role="slider"], [role="option"], [role="checkbox"]';
@@ -274,6 +277,11 @@ function onKeyDown(e: KeyboardEvent): void {
       }
       const id = selectedId();
       if (id) toggleFavorite(id).catch(reportError('Could not update favorite'));
+      break;
+    }
+    case 'Delete': {
+      const id = selectedId();
+      if (id) deleteArticleWithUndo(id).catch(reportError('Could not delete the article'));
       break;
     }
     case 's':

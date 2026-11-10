@@ -1,7 +1,6 @@
 /**
- * Dexie version chain. Version 1 is the only one for now (ARCHITECTURE §2.1).
- * Future versions are appended here as `version(n).stores(...)` / `.upgrade(...)`
- * steps; the string map below must stay in sync with §2.1.
+ * Dexie version chain (ARCHITECTURE §2.1). Each version keeps its own string map; a version
+ * block is never edited once shipped. Version 2 adds the `deletedArticles` tombstone table.
  */
 export const DB_NAME = 'openhorizon';
 
@@ -14,4 +13,13 @@ export const STORES_V1: Record<string, string> = {
   syncLog: '++id, feedId, startedAt, [feedId+startedAt]',
 };
 
-export const DB_VERSION = 1;
+/**
+ * Version 2: tombstones for deleted articles (ARCHITECTURE §2.5). Keyed by [feedId+guid] so a
+ * sync can check each incoming item in one lookup; [feedId+deletedAt] drives the 90-day trim.
+ */
+export const STORES_V2: Record<string, string> = {
+  ...STORES_V1,
+  deletedArticles: '[feedId+guid], feedId, [feedId+deletedAt]',
+};
+
+export const DB_VERSION = 2;

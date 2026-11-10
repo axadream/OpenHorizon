@@ -32,12 +32,20 @@ export interface SharePayload {
 /** The changelog dialog takes no payload. */
 export type ChangelogDialogPayload = Record<string, never>;
 
+/** Article action sheet: which article, and where the pointer or key focus was (desktop anchor). */
+export interface ArticleActionsPayload {
+  articleId: string;
+  x: number;
+  y: number;
+}
+
 /** Payload type per dialog name (what `openDialog` accepts). */
 export interface DialogPayloads {
   addFeed: AddFeedDialogPayload;
   settings: SettingsDialogPayload;
   share: SharePayload;
   changelog: ChangelogDialogPayload;
+  articleActions: ArticleActionsPayload;
 }
 
 export type DialogName = keyof DialogPayloads;
@@ -48,6 +56,7 @@ export interface DialogClosedValues {
   settings: false;
   share: null;
   changelog: false;
+  articleActions: false;
 }
 
 /** Current state of every dialog: its payload when open, its closed value otherwise. */
@@ -56,6 +65,7 @@ export interface DialogSlots {
   settings: DialogClosedValues['settings'] | DialogPayloads['settings'];
   share: DialogClosedValues['share'] | DialogPayloads['share'];
   changelog: DialogClosedValues['changelog'] | DialogPayloads['changelog'];
+  articleActions: DialogClosedValues['articleActions'] | DialogPayloads['articleActions'];
 }
 
 export interface SyncProgress {
