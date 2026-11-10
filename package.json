@@ -15,7 +15,9 @@
         "typecheck": "tsc --noEmit -p tsconfig.app.json",
         "test": "vitest run",
         "proxy": "node server/proxy.mjs",
-        "screenshots": "node scripts/screenshots.mjs"
+        "screenshots": "node scripts/screenshots.mjs",
+        "worker:deploy": "wrangler deploy",
+        "worker:dev": "wrangler dev"
     },
     "dependencies": {
         "clsx": "^2.1.1",
@@ -51,7 +53,8 @@
         "workbox-precaching": "^7.4.1",
         "workbox-routing": "^7.4.1",
         "workbox-strategies": "^7.4.1",
-        "workbox-window": "^7.4.1"
+        "workbox-window": "^7.4.1",
+        "wrangler": "^4.160.0"
     },
     "repository": {
         "type": "git",

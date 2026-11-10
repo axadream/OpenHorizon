@@ -1,0 +1,8 @@
+{
+  // Cloudflare Worker config for the OpenHorizon feed proxy (see worker/index.mjs).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openhorizon-proxy",
+  "main": "worker/index.mjs",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true
+}

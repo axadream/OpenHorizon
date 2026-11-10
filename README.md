@@ -69,6 +69,7 @@ Browsers block most feed requests made across websites (CORS), so OpenHorizon ha
 
 The GitHub Pages demo has no server, so some feeds may fail there. For reliable results, host your own proxy. The repository includes these options:
 
+- **Cloudflare Worker (free, recommended for the GitHub Pages demo)**: run `npx wrangler login` once, then `npm run worker:deploy`. It deploys `worker/index.mjs` and prints a `https://openhorizon-proxy.<account>.workers.dev` URL.
 - **Standalone Node server**: run `npm run proxy` (listens on port 8787 by default).
 - **Cloudflare Pages**: deploy `functions/api/proxy.js` with your site.
 - **Vercel**: deploy `api/proxy.js` with your site.
@@ -76,7 +77,7 @@ The GitHub Pages demo has no server, so some feeds may fail there. For reliable 
 Then point the app at your proxy by setting the build-time variable:
 
 ```sh
-VITE_CORS_PROXY=https://your-worker.workers.dev/api/proxy?url={url}
+VITE_CORS_PROXY=https://openhorizon-proxy.<account>.workers.dev/api/proxy?url={url}
 ```
 
 For a GitHub Pages build, add the same value as a repository variable named `VITE_CORS_PROXY` under **Settings → Secrets and variables → Actions → Variables**. The deploy workflow passes it to the build. The `{url}` placeholder is replaced with the encoded feed address.
