@@ -8,3 +8,7 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+if (import.meta.env.DEV && window.location.search.includes('seed=')) {
+  void import('./dev/devSeed').then((m) => m.runDevSeed())
+}

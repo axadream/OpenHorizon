@@ -14,7 +14,8 @@
         "preview": "vite preview",
         "typecheck": "tsc --noEmit -p tsconfig.app.json",
         "test": "vitest run",
-        "proxy": "node server/proxy.mjs"
+        "proxy": "node server/proxy.mjs",
+        "screenshots": "node scripts/screenshots.mjs"
     },
     "dependencies": {
         "clsx": "^2.1.1",
