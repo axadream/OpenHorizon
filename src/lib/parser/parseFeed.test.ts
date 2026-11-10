@@ -6,7 +6,10 @@ import jsonText from './__fixtures__/feed.json?raw';
 import brokenXml from './__fixtures__/broken.xml?raw';
 import { parseFeed } from './parseFeed';
 import { NotAFeedError } from './types';
-import { setXmlEnv, useXmldomEnv } from '../xml/dom';
+import { setXmlEnv } from '../xml/dom';
+import { createXmldomEnv } from '../xml/xmldomEnv';
+
+const useXmldomEnv = async (): Promise<void> => setXmlEnv(createXmldomEnv());
 import { fnv1a32 } from '@/lib/hash';
 
 const RSS_URL = 'https://blog.example.com/feed.xml';

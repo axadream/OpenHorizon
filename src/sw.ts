@@ -1,5 +1,4 @@
 /// <reference lib="webworker" />
-import { DOMParser as XmldomParser } from '@xmldom/xmldom';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
@@ -7,7 +6,8 @@ import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { NetworkFirst, StaleWhileRevalidate } from 'workbox-strategies';
 import { syncAll } from '@/features/sync/syncAll';
 import { FEED_SYNC_ONCE_TAG, FEED_SYNC_TAG, type PageToSw, type SwToPage } from '@/features/sync/protocol';
-import { ParseError, setXmlEnv } from '@/lib/xml/dom';
+import { setXmlEnv } from '@/lib/xml/dom';
+import { createXmldomEnv } from '@/lib/xml/xmldomEnv';
 
 declare let self: ServiceWorkerGlobalScope & typeof globalThis & {
   __WB_MANIFEST: Array<{ url: string; revision: string | null }>;
@@ -19,18 +19,7 @@ const DAY_S = 24 * 3600;
 
 // Workers have no DOMParser: xmldom is the XML environment for everything the SW parses.
 // Statically imported so it stays inside the SW bundle (never in the page chunks).
-setXmlEnv({
-  parse(text, mime) {
-    const fatal: string[] = [];
-    const doc = new XmldomParser({
-      onError: (level: string, msg: string) => {
-        if (level === 'fatalError' || (mime === 'text/xml' && level === 'error')) fatal.push(String(msg));
-      },
-    }).parseFromString(text, mime) as unknown as Document;
-    if (mime === 'text/xml' && fatal.length > 0) throw new ParseError(fatal[0] ?? 'Invalid XML');
-    return doc;
-  },
-});
+setXmlEnv(createXmldomEnv());
 
 /** Keeps only responses with the listed statuses in a cache (workbox-cacheable-response is not installed). */
 const cacheStatuses = (statuses: number[]) => ({

@@ -2,7 +2,7 @@ import { escapeXml } from '../text';
 
 /**
  * XML adapter. The page uses the native DOMParser. Environments without one
- * (the service worker) load @xmldom/xmldom through a dynamic import (see ensureXmlEnv).
+ * (the service worker, tests) install @xmldom/xmldom via setXmlEnv(createXmldomEnv()).
  *
  * Everything below works on both native DOM and xmldom: no querySelector,
  * only childNodes walking, getAttribute/getAttributeNS, localName, namespaceURI, textContent.
@@ -68,31 +68,15 @@ export function parseHtml(text: string): Document {
   return env ? env.parse(text, 'text/html') : nativeParse(text, 'text/html');
 }
 
-/** Load @xmldom/xmldom unconditionally and use it as the XML environment. */
-export async function useXmldomEnv(): Promise<void> {
-  const mod = await import('@xmldom/xmldom');
-  const XmldomParser = mod.DOMParser;
-  env = {
-    parse(text, mime) {
-      const fatal: string[] = [];
-      const doc = new XmldomParser({
-        onError: (level, msg) => {
-          if (level === 'fatalError' || (mime === 'text/xml' && level === 'error')) fatal.push(String(msg));
-        },
-      }).parseFromString(text, mime) as unknown as Document;
-      if (mime === 'text/xml' && fatal.length > 0) throw new ParseError(fatal[0]);
-      return doc;
-    },
-  };
-}
-
 /**
- * Make sure some XML parser is available. Native DOMParser is used when present (page);
- * otherwise xmldom is loaded. Call once before parsing in the service worker.
+ * Make sure some XML parser is available: the native DOMParser (page) or an environment
+ * installed with setXmlEnv (the service worker installs xmldom via `xmldomEnv.ts`).
+ * Deliberately no dynamic import here: a dynamic import would pull Vite's preload helper
+ * (which uses `import.meta`) into the classic service-worker bundle and break it.
  */
 export async function ensureXmlEnv(): Promise<void> {
   if (env || typeof DOMParser !== 'undefined') return;
-  await useXmldomEnv();
+  throw new Error('No XML parser available: call setXmlEnv() before parsing feeds in this context.');
 }
 
 // ---------- namespace-safe helpers ----------
