@@ -76,6 +76,11 @@ describe('isAiCacheValid', () => {
     expect(isAiCacheValid(cache, 'h1', 'ro')).toBe(false);
   });
 
+  it('rejects entries written by the retired Transformers.js engine', () => {
+    expect(isAiCacheValid({ ...cacheFor('h1'), provider: 'transformers' }, 'h1', 'en')).toBe(false);
+    expect(isAiCacheValid({ ...cacheFor('h1'), provider: 'wllama' }, 'h1', 'en')).toBe(true);
+  });
+
   it('is false with no cache and for an empty result', () => {
     expect(isAiCacheValid(undefined, 'h1', 'en')).toBe(false);
     expect(isAiCacheValid({ ...cacheFor('h1'), summary: '', takeaways: [] }, 'h1', 'en')).toBe(false);

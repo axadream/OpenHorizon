@@ -11,6 +11,8 @@ import type { ProviderResult } from './types';
 /** True when the cached entry was made from this exact source text in this language. */
 export function isAiCacheValid(cache: AiArticleCache | undefined, hash: string, lang: string): boolean {
   if (!cache) return false;
+  // Results of the retired Transformers.js engine (provider 'transformers') have no label any more.
+  if (cache.provider === 'transformers') return false;
   if (cache.hash !== hash || cache.lang !== lang) return false;
   return cache.summary.length > 0 || cache.takeaways.length > 0;
 }
