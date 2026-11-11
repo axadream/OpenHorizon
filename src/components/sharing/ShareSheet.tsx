@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ComponentType } from 'react';
 import { Check, Copy, Link as LinkIcon, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { copyShareText } from '@/features/sharing/share';
 import { copyToClipboard, SHARE_TARGETS, shareTargetHref, type ShareTargetId } from '@/features/sharing/shareTargets';
+import { useT } from '@/i18n/i18n';
 import { useShareTarget } from '@/store/selectors';
 import { useUiStore } from '@/store/uiStore';
 import { toast } from '@/lib/toast';
@@ -44,6 +46,7 @@ function hostOf(url: string): string {
 }
 
 function ShareBody({ payload }: { payload: SharePayload }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
 
@@ -54,14 +57,14 @@ function ShareBody({ payload }: { payload: SharePayload }) {
     [],
   );
 
-  async function copyLink(): Promise<void> {
-    const ok = await copyToClipboard(payload.url);
+  async function copy(text: string): Promise<void> {
+    const ok = await copyToClipboard(text);
     if (!ok) {
-      toast.error('Could not copy the link');
+      toast.error(t('share.copyFailed'));
       return;
     }
     setCopied(true);
-    toast.success('Link copied');
+    toast.success(t('share.linkCopied'));
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 2000);
   }
@@ -74,28 +77,28 @@ function ShareBody({ payload }: { payload: SharePayload }) {
       </div>
 
       <ul role="list" className="grid grid-cols-4 gap-3 md:grid-cols-7">
-        {SHARE_TARGETS.map((t) => {
-          const isEmail = t.id === 'email';
-          const Icon = t.id === 'email' ? null : BRAND_ICONS[t.id];
+        {SHARE_TARGETS.map((target) => {
+          const isEmail = target.id === 'email';
+          const Icon = target.id === 'email' ? null : BRAND_ICONS[target.id];
           return (
-            <li key={t.id} className="flex justify-center">
+            <li key={target.id} className="flex justify-center">
               <a
-                href={shareTargetHref(t.id, payload)}
+                href={shareTargetHref(target.id, payload)}
                 target={isEmail ? undefined : '_blank'}
                 rel={isEmail ? undefined : 'noopener noreferrer'}
-                aria-label={isEmail ? 'Share by email' : `Share on ${t.label}`}
+                aria-label={isEmail ? t('share.byEmail') : t('share.on', { target: target.label })}
                 className={TILE_LINK_CLASS}
               >
                 <span className={TILE_ICON_CLASS}>
                   {Icon ? <Icon size={20} /> : <Mail aria-hidden="true" size={20} strokeWidth={1.75} />}
                 </span>
-                <span className="text-xs text-text-muted">{t.label}</span>
+                <span className="text-xs text-text-muted">{target.label}</span>
               </a>
             </li>
           );
         })}
         <li className="flex justify-center">
-          <button type="button" onClick={() => void copyLink()} className={TILE_LINK_CLASS}>
+          <button type="button" onClick={() => void copy(copyShareText(payload))} className={TILE_LINK_CLASS}>
             <span className={TILE_ICON_CLASS}>
               {copied ? (
                 <Check aria-hidden="true" size={20} strokeWidth={1.75} />
@@ -103,14 +106,16 @@ function ShareBody({ payload }: { payload: SharePayload }) {
                 <LinkIcon aria-hidden="true" size={20} strokeWidth={1.75} />
               )}
             </span>
-            <span className="text-xs text-text-muted">Copy link</span>
+            <span className="text-xs text-text-muted">
+              {copied ? t('share.copied') : t('share.copyLink')}
+            </span>
           </button>
         </li>
       </ul>
 
       <div className="flex items-center gap-2">
         <label htmlFor="share-url" className="sr-only">
-          Article link
+          {t('share.linkLabel')}
         </label>
         <input
           id="share-url"
@@ -123,9 +128,9 @@ function ShareBody({ payload }: { payload: SharePayload }) {
           variant="steel"
           size="sm"
           leadingIcon={copied ? Check : Copy}
-          onClick={() => void copyLink()}
+          onClick={() => void copy(payload.url)}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t('share.copied') : t('share.copy')}
         </Button>
       </div>
     </div>
@@ -133,6 +138,7 @@ function ShareBody({ payload }: { payload: SharePayload }) {
 }
 
 export function ShareSheet() {
+  const t = useT();
   const payload = useShareTarget();
   return (
     <Dialog
@@ -140,7 +146,7 @@ export function ShareSheet() {
       onOpenChange={(open) => {
         if (!open) useUiStore.getState().closeDialog('share');
       }}
-      title="Share"
+      title={t('share.title')}
     >
       {payload ? <ShareBody payload={payload} /> : null}
     </Dialog>

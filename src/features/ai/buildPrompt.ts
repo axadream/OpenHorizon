@@ -1,3 +1,4 @@
+import { languageNameOf } from '@/i18n/locale';
 import type { Locale } from '@/i18n/types';
 
 /*
@@ -9,12 +10,10 @@ import type { Locale } from '@/i18n/types';
 export const ARTICLE_OPEN = '<article>';
 export const ARTICLE_CLOSE = '</article>';
 
-/** Language names used in the prompt (English, so the model reads them unambiguously). */
-export const LANGUAGE_NAMES: Record<Locale, string> = {
-  en: 'English',
-  ro: 'Romanian',
-  ar: 'Arabic',
-};
+/** Language name used in the prompt (English, so the model reads it unambiguously). */
+export function languageName(locale: Locale): string {
+  return languageNameOf(locale);
+}
 
 export interface PromptInput {
   title: string;
@@ -37,7 +36,7 @@ export function escapeArticleText(text: string): string {
 
 /** Prompt for the JSON output: summary, takeaways and tags in one request. */
 export function buildPrompt(input: PromptInput): BuiltPrompt {
-  const language = LANGUAGE_NAMES[input.locale];
+  const language = languageName(input.locale);
   const preferences = input.instructions.trim();
   const system = [
     'You summarise one web article for a reader.',
@@ -62,7 +61,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
 
 /** Prompt for tags only (the Prompt API path of the built-in provider). */
 export function buildTagPrompt(text: string, locale: Locale): BuiltPrompt {
-  const language = LANGUAGE_NAMES[locale];
+  const language = languageName(locale);
   const system = [
     'You label one web article with topic tags.',
     `Reply with 3 to 6 short tags in ${language}, separated by commas, and nothing else.`,

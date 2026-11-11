@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Download, Plug, RotateCcw } from 'lucide-react';
 import { AiConsentDialog } from '@/components/ai/AiConsentDialog';
-import { AVAILABILITY_KEY, diagnosisText, PRIVACY_HINT_KEY, PROVIDER_ID_KEY, PROVIDER_KEY } from '@/components/ai/labels';
+import { AVAILABILITY_KEY, diagnosisText, ENGINE_KEY, PRIVACY_HINT_KEY, PROVIDER_ID_KEY, PROVIDER_KEY } from '@/components/ai/labels';
 import { PrivacyBadge } from '@/components/ai/PrivacyBadge';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
@@ -12,8 +12,15 @@ import { AI_PROVIDER_IDS } from '@/features/ai/presets';
 import { AiConsentRequiredError } from '@/features/ai/errors';
 import { resolveAiConfig } from '@/features/ai/config';
 import { loadOpenAiContext, diagnoseNow } from '@/features/ai/openAiContext';
+import { resolveOnDeviceEngine, type OnDeviceEngine } from '@/features/ai/orchestrator';
 import { getChromeAiSupport, downloadChromeModel, type ChromeAiSupport } from '@/features/ai/providers/chromeBuiltin';
 import { testConnection } from '@/features/ai/providers/openAiCompatible';
+import {
+  downloadTransformersModel,
+  isTransformersModelCached,
+  isTransformersSupported,
+  TRANSFORMERS_MODEL_SIZE_LABEL,
+} from '@/features/ai/providers/transformers';
 import type { AiPrivacy } from '@/features/ai/types';
 import { useSetting } from '@/features/settings/settings';
 import { t, useT } from '@/i18n/i18n';
@@ -34,45 +41,117 @@ function currentTarget(provider: AiProviderId, baseUrl: string): { privacy: AiPr
   return { privacy: config?.privacy ?? 'cloud', host: config?.host ?? '' };
 }
 
-/** Built-in model status and the download button (the download must start from a click). */
-function ChromeStatus() {
-  useT();
-  const [support, setSupport] = useState<ChromeAiSupport | null>(null);
-  const [busy, setBusy] = useState(false);
+interface OnDeviceState {
+  support: ChromeAiSupport;
+  cached: boolean;
+  engine: OnDeviceEngine;
+}
 
-  const refresh = useCallback(async (): Promise<void> => {
-    setSupport(await getChromeAiSupport());
-  }, []);
+async function readOnDeviceState(onDeviceModel: boolean): Promise<OnDeviceState> {
+  const [support, cached, engine] = await Promise.all([
+    getChromeAiSupport(),
+    isTransformersModelCached(),
+    resolveOnDeviceEngine({ onDeviceModel }),
+  ]);
+  return { support, cached, engine };
+}
+
+/**
+ * Engine in use, the browser built-in model status, and the opt-in on-device model (Transformers.js).
+ * Downloads must start from a click, so both download buttons are plain click handlers.
+ */
+function OnDeviceStatus() {
+  useT();
+  const onDeviceModel = useSetting('aiOnDeviceModel');
+  const [state, setState] = useState<OnDeviceState | null>(null);
+  const [revision, setRevision] = useState(0);
+  const [chromeBusy, setChromeBusy] = useState(false);
+  const [modelBusy, setModelBusy] = useState(false);
+  const supported = isTransformersSupported();
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let alive = true;
+    void readOnDeviceState(onDeviceModel).then((next) => {
+      if (alive) setState(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [onDeviceModel, revision]);
 
-  const download = async (): Promise<void> => {
-    setBusy(true);
+  const reload = (): void => setRevision((n) => n + 1);
+
+  const downloadChrome = async (): Promise<void> => {
+    setChromeBusy(true);
     try {
       await downloadChromeModel();
     } catch (err) {
       toast.error(t('ai.failed'), { description: err instanceof Error ? err.message : undefined });
     } finally {
-      setBusy(false);
-      await refresh();
+      setChromeBusy(false);
+      reload();
     }
   };
 
+  const enableModel = async (): Promise<void> => {
+    setModelBusy(true);
+    try {
+      await downloadTransformersModel();
+      save('aiOnDeviceModel', true);
+    } catch (err) {
+      toast.error(t('ai.failed'), { description: err instanceof Error ? err.message : undefined });
+    } finally {
+      setModelBusy(false);
+      reload();
+    }
+  };
+
+  const support = state?.support ?? null;
+
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {support ? (
-        <p role="status" className="text-sm text-silver">
-          {t('ai.chromeStatus', { status: t(AVAILABILITY_KEY[support.summarizer]) })}
-        </p>
+    <>
+      {support?.summarizer === 'unavailable' ? (
+        <p className="text-sm text-text-muted">{t('ai.builtinUnavailable')}</p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          {support ? (
+            <p role="status" className="text-sm text-silver">
+              {t('ai.chromeStatus', { status: t(AVAILABILITY_KEY[support.summarizer]) })}
+            </p>
+          ) : null}
+          {support?.summarizer === 'downloadable' ? (
+            <Button variant="steel" size="sm" leadingIcon={Download} loading={chromeBusy} onClick={() => void downloadChrome()}>
+              {t('ai.downloadModel')}
+            </Button>
+          ) : null}
+        </div>
+      )}
+
+      {state ? (
+        <Row label={t('ai.engine')}>
+          <span className="text-sm text-text">{t(ENGINE_KEY[state.engine])}</span>
+        </Row>
       ) : null}
-      {support?.summarizer === 'downloadable' ? (
-        <Button variant="steel" size="sm" leadingIcon={Download} loading={busy} onClick={() => void download()}>
-          {t('ai.downloadModel')}
-        </Button>
-      ) : null}
-    </div>
+
+      {supported ? (
+        <Row label={t('ai.onDeviceModel')} hint={t('ai.onDeviceModelHint', { size: TRANSFORMERS_MODEL_SIZE_LABEL })}>
+          <span role="status" className="text-sm text-silver">
+            {t(state?.cached ? 'ai.onDeviceModelReady' : 'ai.onDeviceModelNotLoaded')}
+          </span>
+          {onDeviceModel ? (
+            <Button variant="ghost" size="sm" onClick={() => save('aiOnDeviceModel', false)}>
+              {t('ai.onDeviceModelDisable')}
+            </Button>
+          ) : (
+            <Button variant="steel" size="sm" leadingIcon={Download} loading={modelBusy} onClick={() => void enableModel()}>
+              {t('ai.onDeviceModelEnable')}
+            </Button>
+          )}
+        </Row>
+      ) : (
+        <p className="text-sm text-text-muted">{t('ai.onDeviceUnsupported')}</p>
+      )}
+    </>
   );
 }
 
@@ -165,7 +244,7 @@ export function AiSettings() {
       </Row>
 
       {provider === 'chrome-builtin' ? (
-        <ChromeStatus />
+        <OnDeviceStatus />
       ) : (
         <>
           <AiConnectionFields provider={provider} onConsentRequired={setConsent} />

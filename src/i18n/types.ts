@@ -1,11 +1,17 @@
-/** Supported UI languages. `auto` is only a setting value; it resolves to one of these. */
-export const SUPPORTED_LOCALES = ['en', 'ro', 'ar'] as const;
-export type Locale = (typeof SUPPORTED_LOCALES)[number];
+/** Bundled UI languages (each has a dictionary file in this folder). */
+export const SUPPORTED_LOCALES = ['en', 'ro', 'he', 'zh-CN'] as const;
+export type BundledLocale = (typeof SUPPORTED_LOCALES)[number];
 
-/** Languages written right to left. */
-export const RTL_LOCALES: readonly Locale[] = ['ar'];
+/**
+ * Active UI language. `custom` is a user-imported translation (see customLocale.ts): its name, BCP 47
+ * tag and direction come from the imported file. `auto` is only a setting value; it resolves to one of these.
+ */
+export type Locale = BundledLocale | 'custom';
 
-/** CLDR plural categories. English uses only one/other; Romanian and Arabic add the rest. */
+/** Bundled languages written right to left. (`custom` reads its direction from the imported file.) */
+export const RTL_LOCALES: readonly Locale[] = ['he'];
+
+/** CLDR plural categories. English uses one/other; Romanian adds few; Hebrew adds two; Chinese has only other. */
 export type PluralCategory = 'zero' | 'one' | 'two' | 'few' | 'many' | 'other';
 
 /** Any plural variant key, e.g. `plural.articles.few`. Variants are optional per locale. */

@@ -36,7 +36,11 @@ describe('buildPrompt', () => {
   it('gives the language directive by name for each UI language', () => {
     expect(buildPrompt({ ...base, locale: 'en' }).system).toContain('Reply in English.');
     expect(buildPrompt({ ...base, locale: 'ro' }).system).toContain('Reply in Romanian.');
-    expect(buildPrompt({ ...base, locale: 'ar' }).system).toContain('Reply in Arabic.');
+    expect(buildPrompt({ ...base, locale: 'he' }).system).toContain('Reply in Hebrew.');
+  });
+
+  it('names the Simplified Chinese locale in the directive', () => {
+    expect(buildPrompt({ ...base, locale: 'zh-CN' }).system).toContain('Chinese');
   });
 
   it('includes the user instructions as style only', () => {

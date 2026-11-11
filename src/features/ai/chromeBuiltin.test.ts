@@ -60,7 +60,7 @@ describe('outputLanguageFor', () => {
 
   it('falls back to English and says so for languages the summarizer does not support', () => {
     expect(outputLanguageFor('ro')).toEqual({ language: 'en', fellBack: true });
-    expect(outputLanguageFor('ar')).toEqual({ language: 'en', fellBack: true });
+    expect(outputLanguageFor('he')).toEqual({ language: 'en', fellBack: true });
   });
 });
 

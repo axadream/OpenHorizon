@@ -8,10 +8,17 @@ export type AiPrivacy = 'on-device' | 'local' | 'cloud';
 export type AiAvailability = 'unavailable' | 'downloadable' | 'downloading' | 'available';
 
 /** Explanations shown next to a result (i18n keys). */
-export type AiNoteKey = 'ai.note.englishOutput' | 'ai.note.heuristicFallback' | 'ai.note.heuristicTags';
+export type AiNoteKey =
+  | 'ai.note.englishOutput'
+  | 'ai.note.heuristicFallback'
+  | 'ai.note.heuristicTags'
+  | 'ai.note.transformersEnglish';
 
-/** Providers that can produce a draft: the settings providers plus the offline heuristic fallback. */
-export type ProviderId = AiProviderId | 'heuristic';
+/**
+ * Providers that can produce a draft: the settings providers plus the two on-device fallbacks used
+ * when 'chrome-builtin' is selected but the browser has no built-in model (Transformers.js, heuristic).
+ */
+export type ProviderId = AiProviderId | 'transformers' | 'heuristic';
 
 /** The four-part result every provider returns. */
 export interface ArticleDraft {

@@ -23,7 +23,7 @@
           var theme = pick(s.theme, ['metallic', 'oled', 'sepia', 'contrast', 'system'], 'metallic');
           var font = pick(s.font, ['sans', 'serif', 'mono', 'dyslexic'], 'sans');
           var layout = pick(s.layoutMode, ['comfortable', 'list', 'cards', 'reading'], 'comfortable');
-          var language = pick(s.language, ['auto', 'en', 'ro', 'ar'], 'auto');
+          var language = pick(s.language, ['auto', 'en', 'ro', 'he', 'zh-CN', 'custom'], 'auto');
           var accent = typeof s.accent === 'string' && /^#?[0-9a-f]{6}$/i.test(s.accent.trim())
             ? '#' + s.accent.trim().replace('#', '').toLowerCase()
             : null;
@@ -48,19 +48,39 @@
             root.style.setProperty('--color-on-accent', lum > 0.179 ? '#000000' : '#ffffff');
           }
           var locale = language;
+          var rtl = false;
           if (locale === 'auto') {
             var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
             locale = 'en';
             for (var i = 0; i < langs.length; i++) {
               var primary = String(langs[i]).toLowerCase().split('-')[0];
-              if (primary === 'en' || primary === 'ro' || primary === 'ar') {
+              if (primary === 'en' || primary === 'ro' || primary === 'he') {
                 locale = primary;
+                break;
+              }
+              if (primary === 'zh') {
+                locale = 'zh-CN';
                 break;
               }
             }
           }
+          if (locale === 'custom') {
+            // Imported translation (i18n/customLocale.ts): its own tag and direction, English when missing.
+            var pack = null;
+            try {
+              var packRaw = localStorage.getItem('oh-custom-locale');
+              pack = packRaw ? JSON.parse(packRaw) : null;
+            } catch (e2) {
+              pack = null;
+            }
+            var meta = pack && pack.meta && typeof pack.meta === 'object' ? pack.meta : null;
+            locale = meta && typeof meta.tag === 'string' && meta.tag ? meta.tag : 'en';
+            rtl = !!meta && meta.direction === 'rtl';
+          } else {
+            rtl = locale === 'he';
+          }
           root.lang = locale;
-          root.dir = locale === 'ar' ? 'rtl' : 'ltr';
+          root.dir = rtl ? 'rtl' : 'ltr';
         } catch (e) {
           /* The app still starts with its default look. */
         }

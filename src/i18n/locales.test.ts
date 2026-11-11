@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { ar } from './ar';
 import { en } from './en';
+import { he } from './he';
 import { ro } from './ro';
+import { zhCN } from './zh-CN';
 
 /*
  * Every locale must define exactly the English base keys with the same {placeholders}.
  * Plural variants (plural.<group>.<category>) may differ per locale, but each group needs an
  * `other` form and each variant must keep the placeholders of the English `other` form.
+ * Romanian uses one / few / other, Hebrew uses one / two / other, Chinese uses other only.
  */
 
 const PLURAL = /^plural\.[^.]+\.(zero|one|two|few|many|other)$/;
@@ -25,7 +27,7 @@ function baseKeys(dict: Record<string, string | undefined>): string[] {
     .sort();
 }
 
-const locales = { ro, ar } as const;
+const locales = { ro, he, 'zh-CN': zhCN } as const;
 
 describe('locale dictionaries', () => {
   for (const [name, dict] of Object.entries(locales)) {

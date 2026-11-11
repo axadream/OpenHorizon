@@ -9,8 +9,9 @@ import { db } from '@/db/db';
 import type { Feed, Folder } from '@/db/schema';
 import { useCounts } from '@/features/articles/articleQueries';
 import { useAppearanceStore } from '@/features/appearance/appearanceStore';
-import { useFeeds, useFolders, useUnreadCounts } from '@/features/feeds/feedQueries';
+import { useFolders, useUnreadCounts } from '@/features/feeds/feedQueries';
 import { createFolder, moveFeedToFolder, renameFolder, setFolderCollapsed } from '@/features/feeds/folders';
+import { useVisibleFeeds } from '@/features/feeds/languageFilter';
 import { syncAll } from '@/features/sync/syncAll';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useLive } from '@/hooks/useLive';
@@ -100,7 +101,7 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
   const rail = useNavRail();
   const view = useView();
   const search = useSearchQuery();
-  const feeds = useFeeds();
+  const { feeds, hiddenCount } = useVisibleFeeds();
   const folders = useFolders();
   const unread = useUnreadCounts();
   const counts = useCounts();
@@ -402,6 +403,9 @@ export function NavPane({ className, ...rest }: ComponentPropsWithoutRef<'nav'>)
               ) : null}
             </>
           )}
+          {hiddenCount > 0 && !rail ? (
+            <p className="px-2 pt-2 text-xs text-text-faint">{t('plural.hiddenFeeds', { count: hiddenCount })}</p>
+          ) : null}
         </section>
       </div>
 

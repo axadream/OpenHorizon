@@ -6,6 +6,7 @@ import type { OpmlResult } from '@/lib/opml/parseOpml';
 import { fetchWithProxy } from '@/lib/proxy/fetchWithProxy';
 import { parseFeed } from '@/lib/parser/parseFeed';
 import type { ParsedFeed } from '@/lib/parser/types';
+import { detectLanguage, normalizeLanguageTag, sampleFeedText } from '@/lib/lang/detectLanguage';
 import { hostname, normalizeFeedUrl, withWebScheme } from '@/lib/url';
 import { initialFaviconUrl } from './favicon';
 import { createFolder } from './folders';
@@ -58,7 +59,17 @@ function buildFeed(url: string, parsed: ParsedFeed, folderId: string | null, now
   };
   if (siteUrl) feed.siteUrl = siteUrl;
   if (parsed.description) feed.description = parsed.description;
-  if (parsed.language) feed.language = parsed.language;
+  const declared = normalizeLanguageTag(parsed.language);
+  if (declared) {
+    feed.language = declared;
+    feed.languageDetected = 0;
+  } else {
+    const detected = detectLanguage(sampleFeedText(parsed.items));
+    if (detected) {
+      feed.language = detected;
+      feed.languageDetected = 1;
+    }
+  }
   const favicon = initialFaviconUrl({ siteUrl, url }, parsed.iconUrl);
   if (favicon) feed.faviconUrl = favicon;
   return feed;

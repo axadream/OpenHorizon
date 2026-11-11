@@ -10,6 +10,8 @@ import type { View } from '@/store/types';
  *   ?feed=<url>            protocol handler web+rss:<url> (manifest protocol_handlers)
  *   ?url=&text=&title=     share target (manifest share_target, GET)
  *   ?action=add            "Add feed" shortcut
+ *   ?action=sync           "Sync feeds" shortcut (refresh all feeds)
+ *   ?action=share          "Share app" shortcut (share OpenHorizon itself)
  *   ?view=unread|favorites smart-view shortcuts
  *
  * Browsers do not allow registering the `feed:` scheme, so `feed://` text pasted into the app is
@@ -19,7 +21,7 @@ import type { View } from '@/store/types';
 export type LaunchParseResult =
   | { kind: 'add-feed'; url: string }
   | { kind: 'share'; url: string }
-  | { kind: 'action'; action: 'add' }
+  | { kind: 'action'; action: 'add' | 'sync' | 'share' }
   | { kind: 'view'; view: Extract<View, { type: 'unread' | 'favorites' }>['type'] }
   | { kind: 'none' };
 
@@ -93,7 +95,8 @@ export function parseLaunchParams(search: string): LaunchParseResult {
   const shared = toWebUrl(params.get('url')) || firstLinkInText(params.get('url')) || firstLinkInText(params.get('text')) || toWebUrl(params.get('title'));
   if (shared) return { kind: 'share', url: shared };
 
-  if (params.get('action') === 'add') return { kind: 'action', action: 'add' };
+  const action = params.get('action');
+  if (action === 'add' || action === 'sync' || action === 'share') return { kind: 'action', action };
 
   const view = params.get('view');
   if (view === 'unread' || view === 'favorites') return { kind: 'view', view };

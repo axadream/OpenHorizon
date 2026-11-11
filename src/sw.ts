@@ -108,8 +108,16 @@ registerRoute(
 );
 
 // ---- feeds and proxy responses (cross-origin fetch): network first, 24 h offline fallback ----
+// The on-device AI model (features/ai/providers/transformers.ts) fetches hundreds of megabytes from
+// Hugging Face and its library from jsDelivr; Transformers.js keeps those in its own cache, so they
+// must not pass through this route (it would evict the feed cache and store the model twice).
+const MODEL_HOSTS = /(^|\.)(huggingface\.co|hf\.co|jsdelivr\.net)$/;
 registerRoute(
-  ({ url, request }) => request.method === 'GET' && request.destination === '' && url.origin !== self.location.origin,
+  ({ url, request }) =>
+    request.method === 'GET' &&
+    request.destination === '' &&
+    url.origin !== self.location.origin &&
+    !MODEL_HOSTS.test(url.hostname),
   new NetworkFirst({
     cacheName: FEEDS_CACHE,
     networkTimeoutSeconds: 15,

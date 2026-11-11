@@ -37,7 +37,10 @@ interface AiProvider {
 
 ### Providers
 
-- **chrome-builtin** (default, on-device). Uses `Summarizer` (feature-detected). Summary with `tldr`, takeaways with `key-points`. Tags come from the Prompt API only when it is already `available`; otherwise from the keyword heuristic. Output language is `en`, `es` or `ja`; any other UI language falls back to English and the panel says so. If the summarizer is unavailable, the heuristic is used and the panel says that too. A model download is shown in the global activity bar.
+- **chrome-builtin** ("On this device", the default). An engine chain, resolved by `resolveOnDeviceEngine` in `orchestrator.ts`:
+  1. The browser's built-in `Summarizer` when it is available (desktop Chrome). Summary with `tldr`, takeaways with `key-points`. Tags come from the Prompt API only when it is already `available`; otherwise from the keyword heuristic. Output language is `en`, `es` or `ja`; any other UI language falls back to English and the panel says so. A model download is shown in the global activity bar.
+  2. **transformers** (`providers/transformers.ts`) when the user has opted in with "Download and use" in Settings (`aiOnDeviceModel`). Transformers.js is loaded on demand from a pinned CDN URL (not bundled), and runs `Xenova/distilbart-cnn-6-6` (8-bit) with WebGPU where it exists and WebAssembly otherwise, so it works on Android, iOS and Firefox. The model is downloaded once (roughly 250 MB) and kept in the browser cache. It writes English; takeaways and tags come from the heuristic.
+  3. **heuristic** otherwise, with a note in the panel. This is what phones get before opting in.
 - **ollama**, **lmstudio** (local). OpenAI-style base addresses on `localhost`. No key. Ollama also lists models at `/api/tags`.
 - **openai**, **mistral**, **deepseek**, **gemini** (cloud). Fixed addresses, API key required.
 - **custom**. Any OpenAI-style address. Its privacy class follows the address: loopback and private network hosts are local, anything else is cloud.
@@ -45,7 +48,7 @@ interface AiProvider {
 
 ### What is not bundled, and why
 
-WebLLM and Transformers.js are not included. Their model weights run to hundreds of megabytes and need WebGPU, which many devices lack. The provider interface leaves room for them; a new provider is one file plus a preset.
+WebLLM is not included: its models run to gigabytes and need WebGPU, which many phones lack. Transformers.js is not bundled either; it is fetched from a pinned CDN URL only after the user asks for the on-device model, so the app shell and its precache stay small. There is no keyless cloud fallback: a free proxy would run on somebody's key and bill, and the project has no server.
 
 ## Privacy classes and what is sent
 

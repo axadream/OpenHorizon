@@ -92,6 +92,20 @@ const installIntegration = {
       url: `${base}?view=favorites`,
       icons: shortcutIcons,
     },
+    {
+      name: 'Sync feeds',
+      short_name: 'Sync',
+      description: 'Refresh all feeds now',
+      url: `${base}?action=sync`,
+      icons: shortcutIcons,
+    },
+    {
+      name: 'Share app',
+      short_name: 'Share',
+      description: 'Share OpenHorizon with someone',
+      url: `${base}?action=share`,
+      icons: shortcutIcons,
+    },
   ],
   file_handlers: [
     {

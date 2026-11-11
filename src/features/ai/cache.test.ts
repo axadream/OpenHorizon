@@ -85,10 +85,10 @@ describe('isAiCacheValid', () => {
     const entry = buildAiCache(
       { summary: 'S', takeaways: ['a'], tags: ['t'], provider: 'heuristic', model: '', privacy: 'on-device' },
       'hh',
-      'ar',
+      'he',
       42,
     );
-    expect(entry).toMatchObject({ hash: 'hh', lang: 'ar', at: 42, summary: 'S' });
+    expect(entry).toMatchObject({ hash: 'hh', lang: 'he', at: 42, summary: 'S' });
   });
 });
 

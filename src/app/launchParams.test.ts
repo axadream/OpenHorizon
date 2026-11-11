@@ -97,6 +97,11 @@ describe('parseLaunchParams: actions and views', () => {
     expect(parseLaunchParams('?action=add')).toEqual({ kind: 'action', action: 'add' });
   });
 
+  it('maps action=sync and action=share', () => {
+    expect(parseLaunchParams('?action=sync')).toEqual({ kind: 'action', action: 'sync' });
+    expect(parseLaunchParams('?action=share')).toEqual({ kind: 'action', action: 'share' });
+  });
+
   it('ignores unknown actions', () => {
     expect(parseLaunchParams('?action=delete-everything')).toEqual({ kind: 'none' });
   });

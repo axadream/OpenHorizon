@@ -58,13 +58,13 @@ describe('index.html boot script', () => {
     expect(root.dir).toBe('ltr');
   });
 
-  it('applies a valid stored appearance, including accent and Arabic direction', () => {
-    store({ theme: 'sepia', accent: '#FF5C6C', font: 'mono', layoutMode: 'list', language: 'ar' });
+  it('applies a valid stored appearance, including accent and Hebrew direction', () => {
+    store({ theme: 'sepia', accent: '#FF5C6C', font: 'mono', layoutMode: 'list', language: 'he' });
     const root = runBoot();
     expect(root.dataset.theme).toBe('sepia');
     expect(root.dataset.font).toBe('mono');
     expect(root.dataset.layout).toBe('list');
-    expect(root.lang).toBe('ar');
+    expect(root.lang).toBe('he');
     expect(root.dir).toBe('rtl');
     expect(root.style.getPropertyValue('--color-accent')).toBe('#ff5c6c');
     expect(root.style.getPropertyValue('--color-on-accent')).toBe(deriveAccent('#ff5c6c').on);
@@ -106,7 +106,31 @@ describe('index.html boot script', () => {
     Object.defineProperty(navigator, 'languages', { value: ['fr-FR', 'ro-RO', 'en'], configurable: true });
     store({ language: 'auto' });
     expect(runBoot().lang).toBe('ro');
+    Object.defineProperty(navigator, 'languages', { value: ['zh-TW'], configurable: true });
+    expect(runBoot().lang).toBe('zh-CN');
     Object.defineProperty(navigator, 'languages', { value: ['de-DE'], configurable: true });
     expect(runBoot().lang).toBe('en');
+  });
+
+  it('applies the stored custom translation metadata for the custom language', () => {
+    localStorage.setItem(
+      'oh-custom-locale',
+      JSON.stringify({ meta: { name: 'Deutsch', tag: 'de', direction: 'ltr' }, messages: {} }),
+    );
+    store({ language: 'custom' });
+    const root = runBoot();
+    expect(root.lang).toBe('de');
+    expect(root.dir).toBe('ltr');
+  });
+
+  it('uses rtl for a custom translation that declares it', () => {
+    localStorage.setItem(
+      'oh-custom-locale',
+      JSON.stringify({ meta: { name: 'Farsi', tag: 'fa', direction: 'rtl' }, messages: {} }),
+    );
+    store({ language: 'custom' });
+    const root = runBoot();
+    expect(root.lang).toBe('fa');
+    expect(root.dir).toBe('rtl');
   });
 });

@@ -11,6 +11,7 @@ import { AiFlowError, isAbortError, type AiErrorKey } from './errors';
 import { chromeBuiltinProvider, getChromeAiSupport } from './providers/chromeBuiltin';
 import { heuristicProvider } from './providers/heuristic';
 import { createOpenAiProvider } from './providers/openAiCompatible';
+import { isTransformersSupported, transformersProvider } from './providers/transformers';
 import type { AiProvider, DraftPatch, ProviderResult } from './types';
 
 /*
@@ -59,11 +60,24 @@ export async function isAiReady(): Promise<boolean> {
   return config !== null && issues.every((issue) => issue === 'mixed');
 }
 
+/** The on-device engine in use: 'chrome' (built-in), 'transformers' (opt-in model) or 'heuristic' (offline). */
+export type OnDeviceEngine = 'chrome' | 'transformers' | 'heuristic';
+
+/** Tier 1 Chrome built-in when available; tier 2 Transformers.js when opted in; tier 3 heuristic. */
+export async function resolveOnDeviceEngine(opts: { onDeviceModel: boolean }): Promise<OnDeviceEngine> {
+  if ((await getChromeAiSupport()).summarizer !== 'unavailable') return 'chrome';
+  if (opts.onDeviceModel && isTransformersSupported()) return 'transformers';
+  return 'heuristic';
+}
+
 /** The provider for the current settings. Throws AiFlowError when a cloud or local provider is not set up. */
-export async function chooseProvider(s: Pick<Settings, 'aiProvider' | 'aiBaseUrl' | 'aiModel'>): Promise<AiProvider> {
+export async function chooseProvider(
+  s: Pick<Settings, 'aiProvider' | 'aiBaseUrl' | 'aiModel' | 'aiOnDeviceModel'>,
+): Promise<AiProvider> {
   if (s.aiProvider === 'chrome-builtin') {
-    const support = await getChromeAiSupport();
-    return support.summarizer === 'unavailable' ? heuristicProvider : chromeBuiltinProvider;
+    const engine = await resolveOnDeviceEngine({ onDeviceModel: s.aiOnDeviceModel });
+    if (engine === 'chrome') return chromeBuiltinProvider;
+    return engine === 'transformers' ? transformersProvider : heuristicProvider;
   }
   const apiKey = await getApiKey();
   const { config, issues } = resolveAiConfig(

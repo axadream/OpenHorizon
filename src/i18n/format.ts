@@ -5,14 +5,20 @@ import type { MessageParams } from './types';
 /** Lookup table of template strings; plural variants are optional entries. */
 export type Table = Readonly<Record<string, string | undefined>>;
 
-const pluralRules = new Map<Locale, Intl.PluralRules>();
+/* Cached per BCP 47 tag, not per locale id: the `custom` locale's tag changes with every import. */
+const pluralRules = new Map<string, Intl.PluralRules>();
 
-/** CLDR plural category for a count in a locale (Intl.PluralRules, cached per locale). */
+/** CLDR plural category for a count in a locale (Intl.PluralRules, cached per language tag). */
 export function pluralCategory(locale: Locale, count: number): PluralCategory {
-  let rules = pluralRules.get(locale);
+  const tag = intlTag(locale);
+  let rules = pluralRules.get(tag);
   if (!rules) {
-    rules = new Intl.PluralRules(intlTag(locale));
-    pluralRules.set(locale, rules);
+    try {
+      rules = new Intl.PluralRules(tag);
+    } catch {
+      rules = new Intl.PluralRules('en-US');
+    }
+    pluralRules.set(tag, rules);
   }
   return rules.select(count) as PluralCategory;
 }

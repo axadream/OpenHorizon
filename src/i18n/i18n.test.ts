@@ -30,13 +30,20 @@ describe('t()', () => {
     await setLocale('en');
   });
 
-  it('applies Arabic zero / one / two / few / many / other rules after loading ar', async () => {
-    await setLocale('ar');
-    expect(t('plural.articles', { count: 1 })).toBe('1 مقال');
-    expect(t('plural.articles', { count: 2 })).toBe('2 مقالان');
-    expect(t('plural.articles', { count: 4 })).toBe('4 مقالات');
-    expect(t('plural.articles', { count: 11 })).toBe('11 مقالة');
-    expect(t('plural.articles', { count: 100 })).toBe('100 مقال');
+  it('applies Hebrew one / two / other rules after loading he', async () => {
+    await setLocale('he');
+    expect(getLocale()).toBe('he');
+    expect(t('plural.articles', { count: 1 })).toBe('1 מאמר');
+    expect(t('plural.articles', { count: 2 })).toBe('2 מאמרים');
+    expect(t('plural.articles', { count: 5 })).toBe('5 מאמרים');
+    await setLocale('en');
+  });
+
+  it('uses the single Chinese plural form after loading zh-CN', async () => {
+    await setLocale('zh-CN');
+    expect(getLocale()).toBe('zh-CN');
+    expect(t('plural.articles', { count: 1 })).toBe('1 篇文章');
+    expect(t('plural.articles', { count: 7 })).toBe('7 篇文章');
     await setLocale('en');
   });
 
@@ -52,8 +59,8 @@ describe('t()', () => {
   });
 
   it('sets document lang and dir when the locale changes', async () => {
-    await setLocale('ar');
-    expect(document.documentElement.lang).toBe('ar');
+    await setLocale('he');
+    expect(document.documentElement.lang).toBe('he');
     expect(document.documentElement.dir).toBe('rtl');
     await setLocale('ro');
     expect(document.documentElement.dir).toBe('ltr');
@@ -64,24 +71,26 @@ describe('t()', () => {
 
 describe('locale resolution', () => {
   it('uses an explicit setting as is', () => {
-    expect(resolveLocale('ro', ['ar'])).toBe('ro');
+    expect(resolveLocale('ro', ['he'])).toBe('ro');
   });
 
   it('maps auto to the first supported browser language by primary subtag', () => {
     expect(resolveLocale('auto', ['ro-MD', 'en'])).toBe('ro');
-    expect(resolveLocale('auto', ['fr-FR', 'ar-EG'])).toBe('ar');
+    expect(resolveLocale('auto', ['fr-FR', 'he-IL'])).toBe('he');
+    expect(resolveLocale('auto', ['zh-TW'])).toBe('zh-CN');
     expect(resolveLocale('auto', ['de'])).toBe('en');
     expect(resolveLocale('auto', [])).toBe('en');
   });
 
   it('validates the stored language setting', () => {
     expect(parseLanguageSetting('ro')).toBe('ro');
+    expect(parseLanguageSetting('custom')).toBe('custom');
     expect(parseLanguageSetting('fr')).toBe('auto');
     expect(parseLanguageSetting(42)).toBe('auto');
   });
 
   it('reports the text direction of each locale', () => {
-    expect(directionOf('ar')).toBe('rtl');
+    expect(directionOf('he')).toBe('rtl');
     expect(directionOf('en')).toBe('ltr');
   });
 });

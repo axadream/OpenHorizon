@@ -1,5 +1,8 @@
 import { useEffect } from 'react';
 import { LAUNCH_KEYS, parseLaunchParams, removeSearchParams, type LaunchParseResult } from '@/app/launchParams';
+import { runSyncFromPage } from '@/features/sync/scheduler';
+import { share } from '@/features/sharing/share';
+import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { useUiStore } from '@/store/uiStore';
 
@@ -8,7 +11,7 @@ import { useUiStore } from '@/store/uiStore';
  * removes the query keys it consumed, keeping the path and hash. Returns nothing; safe to run twice.
  *  - add-feed: Add feed on the URL tab, prefilled.
  *  - share:    Add feed on the Discover tab, which searches the page (or validates the feed) at once.
- *  - action:   Add feed.
+ *  - action:   add: Add feed; sync: refresh all feeds now; share: share the app.
  *  - view:     the Unread or Favorites smart view.
  */
 function applyLaunchRequest(request: LaunchParseResult): void {
@@ -21,7 +24,23 @@ function applyLaunchRequest(request: LaunchParseResult): void {
       ui.openDialog('addFeed', { tab: 'discover', initialUrl: request.url });
       break;
     case 'action':
-      ui.openDialog('addFeed', { tab: 'url' });
+      switch (request.action) {
+        case 'add':
+          ui.openDialog('addFeed', { tab: 'url' });
+          break;
+        case 'sync':
+          toast.info(t('launch.syncStarted'));
+          void runSyncFromPage({ manual: true });
+          break;
+        case 'share':
+          // A launch is not a user gesture, so share() falls back to the in-app share sheet.
+          void share({
+            title: t('share.appName'),
+            url: new URL(import.meta.env.BASE_URL, window.location.origin).href,
+            text: t('share.appText'),
+          });
+          break;
+      }
       break;
     case 'view':
       ui.setView({ type: request.view });

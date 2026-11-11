@@ -5,6 +5,7 @@ import { dedupeWithinFetch } from '@/features/articles/dedup';
 import { pruneFeed } from '@/features/articles/retention';
 import { toArticle } from '@/features/articles/toArticle';
 import { initialFaviconUrl } from '@/features/feeds/favicon';
+import { detectLanguage, normalizeLanguageTag, sampleFeedText } from '@/lib/lang/detectLanguage';
 import { parseFeed } from '@/lib/parser/parseFeed';
 import type { ParsedFeed } from '@/lib/parser/types';
 import { FetchAllFailedError, fetchWithProxy, type FetchResult } from '@/lib/proxy/fetchWithProxy';
@@ -167,7 +168,17 @@ export async function syncFeed(feed: Feed, ctx: SyncFeedContext): Promise<SyncFe
       };
       if (!current.titleCustomized && parsed.title) patch.title = parsed.title;
       if (parsed.siteUrl) patch.siteUrl = parsed.siteUrl;
-      if (parsed.language) patch.language = parsed.language;
+      const declared = normalizeLanguageTag(parsed.language);
+      if (declared) {
+        patch.language = declared;
+        patch.languageDetected = 0;
+      } else if (current.language === undefined || current.languageDetected === 1) {
+        const detected = detectLanguage(sampleFeedText(items));
+        if (detected) {
+          patch.language = detected;
+          patch.languageDetected = 1;
+        }
+      }
       if (!current.faviconUrl) {
         const favicon = initialFaviconUrl({ siteUrl: patch.siteUrl ?? current.siteUrl, url: current.url }, parsed.iconUrl);
         if (favicon) patch.faviconUrl = favicon;

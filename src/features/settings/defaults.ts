@@ -20,4 +20,6 @@ export const DEFAULT_SETTINGS: Settings = {
   aiRememberKey: false,
   aiApiKey: '',
   aiCloudConsent: {},
+  aiOnDeviceModel: false,
+  feedLanguageFilter: false,
 };

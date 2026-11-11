@@ -39,16 +39,17 @@ OpenHorizon is a mobile-first, installable PWA RSS reader inspired by the free d
 - **Organisation**: OPML import and export, folders, favorites, an unread filter and Read Later.
 - **Offline first**: articles are stored locally in IndexedDB (through Dexie), so you can read offline after your first visit.
 - **Background sync**: refresh every 15 minutes, 30 minutes or 1 hour, or sync manually. Periodic Background Sync is used where the browser supports it. Favorite feeds can send system notifications.
-- **Sharing**: the Web Share API, with a fallback sheet for X, WhatsApp, Telegram, Reddit, LinkedIn, Facebook, email and copy link.
+- **Sharing**: the Web Share API, with a fallback sheet for X, WhatsApp, Telegram, Reddit, LinkedIn, Facebook, email and copy link. Shared text is branded `Shared via OpenHorizon app | Article title`.
 - **Reader preferences**: text size, line height, column width, image display and fullscreen reading, with four fonts: Serif, Sans, Mono and Dyslexic.
 - **Themes**: Metallic (default), OLED black, Sepia, High contrast and System, with a custom accent colour (any colour, or one of eight presets; the text on it is chosen for contrast).
 - **Fonts**: Sans, Serif, Mono and Dyslexic (OpenDyslexic) for the whole interface, not only the reader.
 - **Layouts**: Comfortable, List (one line per article), Cards (larger thumbnails and summaries) and Reading (full-width reader with the article list as a slide-over). Density adjusts the spacing.
 - **Sounds**: optional, synthesized chimes for sync results, bookmarks, deletes and errors, with volume and preview. Off by default.
-- **Languages**: English, Romanian and Arabic (with right-to-left layout), chosen in Settings or automatic from your browser.
+- **Languages**: English, Romanian, Hebrew (right-to-left layout) and Simplified Chinese, chosen in Settings or automatic from your browser. You can also export the English strings, translate them and import your own language (see [Translations](#translations)).
+- **Feed language filter**: feeds are tagged with their language when fetched, and Settings can hide the feeds that are not in the app's language.
 - **Full articles and saved pages**: "Load full article" fetches the original page and keeps its readable text for offline reading (extraction by Mozilla Readability). "Save page" keeps any web page as an article in a local Saved pages list.
 - **YouTube**: channel, handle, playlist and video links become feeds, channels can be searched by name (best-effort), videos can go to local watch lists, and video articles show a privacy-first player. See [YouTube support](#youtube-support).
-- **Keyboard navigation**: every common action has a shortcut (see [Keyboard shortcuts](#keyboard-shortcuts)).
+- **Keyboard navigation and touch gestures**: every common action has a shortcut (see [Keyboard shortcuts](#keyboard-shortcuts)). On touch devices Settings shows the gesture guide instead (see [Touch gestures](#touch-gestures)).
 - **Accessible**: landmarks, listbox semantics for the article list, visible focus rings and high contrast and dyslexia-friendly options.
 
 ## Screenshots
@@ -72,7 +73,7 @@ An installed OpenHorizon connects to the operating system where the browser supp
 | Integration | What it does | Where it works |
 | --- | --- | --- |
 | Share target | Share a link from another app to OpenHorizon. It opens **Add feed** on the Discover tab, which finds the feed on that page, or checks the link if it is already a feed. | Chromium (Chrome, Edge) on Android and ChromeOS, installed. Not iOS Safari or Firefox. |
-| App shortcuts | Long-press or right-click the app icon for **Add feed**, **Unread** and **Favorites**. | Chromium when installed. Not Safari or Firefox. |
+| App shortcuts | Long-press or right-click the app icon for **Add feed**, **Unread**, **Favorites**, **Sync feeds** and **Share app**. Shortcuts are static manifest entries: no browser ships a dynamic shortcuts API. | Chromium when installed. Not Safari or Firefox. |
 | OPML file handler | Open a `.opml` or `.xml` file with OpenHorizon. The **Import OPML** tab opens with the file loaded. | Chromium desktop (Windows, macOS, ChromeOS, Linux), installed. Not Android, iOS or Firefox. |
 | `web+rss:` protocol handler | Links such as `web+rss:https://example.com/feed.xml` open **Add feed** with the address filled in. | Chromium when installed. Only the `web+rss` scheme can be registered. |
 | App icon badge | The installed app icon shows the unread count. Turn it off in **Settings → Notifications → App icon badge**. | Where the Badging API exists: Chromium on desktop, installed; Safari 16.4 or later for apps added to the iOS and iPadOS Home Screen. Otherwise the switch is disabled and explains why. |
@@ -92,6 +93,8 @@ These query parameters are read when the app opens, then removed from the addres
 | `?feed=<address>` | Add feed, URL tab, filled in |
 | `?url=`, `?text=`, `?title=` | Share: the first web link is used. Add feed opens on the Discover tab and searches it. |
 | `?action=add` | Add feed |
+| `?action=sync` | Refreshes all feeds now |
+| `?action=share` | Opens the share sheet with the app's link |
 | `?view=unread` or `?view=favorites` | Opens that smart view |
 
 ### Storage
@@ -128,12 +131,41 @@ For a GitHub Pages build, add the same value as a repository variable named `VIT
 
 Optional, and off until you turn it on in Settings > AI summaries. The reader's **Summarize** button shows a summary, key takeaways and tags for an article.
 
-- **On-device by default**: Chrome's built-in AI (Summarizer and Prompt APIs) runs in your browser, so nothing leaves the device. Where it is not available, an offline heuristic gives lead sentences and keyword tags, and the panel says so.
+- **On this device (default)**: three engines, picked automatically and shown in Settings as "Engine in use".
+  1. Chrome's built-in AI (Summarizer and Prompt APIs) on desktop Chrome, so nothing leaves the device.
+  2. **On-device model for phones and other browsers**: Android, iOS, Safari and Firefox have no built-in model. Press **Download and use** in Settings → AI summaries to fetch a compact summarization model once (roughly 250 MB, cached by the browser) and run it locally with Transformers.js, on WebGPU where available and WebAssembly otherwise. No account, no key. The model writes English.
+  3. **Offline summarizer**: always available, instant, no download. It picks the lead sentences, the key sentences and keyword tags, and the panel says so.
 - **Local servers**: Ollama, LM Studio or any OpenAI-compatible server on your computer or network. No key needed.
 - **Cloud (opt-in)**: OpenAI, Mistral, DeepSeek, Gemini or a custom endpoint, with your API key. Before the first request a dialog lists exactly what is sent and to which host. Nothing is sent before you accept, and the key is kept for this tab only unless you choose to remember it.
 - Results are cached on the article, and exports never include AI settings or keys.
 
-WebLLM and Transformers.js are not bundled (large model downloads and WebGPU requirements). See `docs/AI.md` for the architecture, privacy classes, the Ollama `OLLAMA_ORIGINS` setup and the Chrome requirements.
+Transformers.js is not bundled; it loads from a pinned CDN address only when you ask for the on-device model. WebLLM is not used (gigabyte models, WebGPU only). See `docs/AI.md` for the architecture, privacy classes, the Ollama `OLLAMA_ORIGINS` setup and the Chrome requirements.
+
+## Translations
+
+The interface ships in English, Romanian, Hebrew and Simplified Chinese. Hebrew switches the whole layout to right-to-left. To add your own language:
+
+1. **Settings → Appearance → Translation files → Export English strings** downloads `openhorizon-en.json`: a `meta` object (`name`, BCP 47 `tag`, `direction`) and a flat `messages` object of key → text.
+2. Translate the values. Keep the keys and every `{placeholder}` exactly as they are. Plural keys end in `.one`, `.two`, `.few`, `.many` or `.other`; keep the forms your language needs and drop the rest.
+3. Set `meta.name` (shown in the language picker), `meta.tag` (for example `de` or `pt-BR`, used for dates and plural rules) and `meta.direction` (`ltr` or `rtl`).
+4. **Import translation…** reads the file, switches the app to it and reports how many keys are missing. Missing keys fall back to English, so a partial file works. **Remove custom translation** returns to the bundled languages.
+
+The imported file stays in this browser only; it is not synced or exported with OPML.
+
+## Touch gestures
+
+On a touch device (no hover, coarse pointer) **Settings → App** shows this guide instead of the keyboard shortcuts.
+
+| Gesture | Action |
+| --- | --- |
+| Tap | Open an article, or show a feed's articles |
+| Long press | Article actions: read, favorite, Read Later, share, lists, delete |
+| Swipe right | Delete the article (undo available) |
+| Swipe left | Toggle favorite |
+| Pull down | Refresh the article list |
+| Back | The system back gesture or button goes back one pane |
+
+In right-to-left languages the swipe directions are mirrored.
 
 ## YouTube support
 
@@ -160,7 +192,7 @@ Privacy:
 | `K` or `↑` | Previous article |
 | `Home` / `End` | First / last article (timeline list) |
 | `Enter` or `O` | Open selected article (mobile: reader) |
-| `←` / `→` | Move focus between panes |
+| `←` / `→` | Move focus between panes (mirrored in right-to-left languages) |
 | `M` | Toggle read |
 | `L` | Toggle Read Later |
 | `F` | Toggle favorite |

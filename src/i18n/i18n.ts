@@ -1,12 +1,14 @@
 import { useSyncExternalStore } from 'react';
+import { loadCustomLocale } from './customLocale';
 import { en, type MessageKey } from './en';
 import { translate } from './format';
 import { directionOf } from './locale';
 import type { Locale, MessageParams, Messages, PluralCategory } from './types';
 
 /*
- * Runtime translation. en is bundled; ro and ar load with dynamic import() from page code only
- * (never from the service worker) and English is shown until they arrive. Not for use in sw.ts.
+ * Runtime translation. en is bundled; ro, he and zh-CN load with dynamic import() from page code only
+ * (never from the service worker) and English is shown until they arrive. `custom` reads the imported
+ * pack from localStorage (customLocale.ts). Not for use in sw.ts.
  */
 
 type Dictionary = Messages<typeof en>;
@@ -21,7 +23,14 @@ export type TranslationKey = MessageKey | PluralBase;
 const loaders: Record<Locale, () => Promise<Dictionary>> = {
   en: () => Promise.resolve(en),
   ro: () => import('./ro').then((m) => m.ro),
-  ar: () => import('./ar').then((m) => m.ar),
+  he: () => import('./he').then((m) => m.he),
+  'zh-CN': () => import('./zh-CN').then((m) => m.zhCN),
+  custom: () => {
+    const pack = loadCustomLocale();
+    if (!pack) return Promise.reject(new Error('No custom translation is imported'));
+    // Missing keys fall back to English inside translate(), so a partial pack is a valid dictionary.
+    return Promise.resolve(pack.messages as unknown as Dictionary);
+  },
 };
 
 const english: Dictionary = en;
@@ -33,7 +42,7 @@ const listeners = new Set<() => void>();
 function applyDocumentLocale(locale: Locale): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  root.lang = locale;
+  root.lang = locale === 'custom' ? (loadCustomLocale()?.meta.tag ?? 'en') : locale;
   root.dir = directionOf(locale);
 }
 
@@ -47,6 +56,8 @@ function notify(): void {
  */
 export async function setLocale(next: Locale): Promise<void> {
   requested = next;
+  // The custom pack can change between imports, so it is always re-read.
+  if (next === 'custom') delete dictionaries.custom;
   if (!dictionaries[next]) {
     try {
       dictionaries[next] = await loaders[next]();
@@ -63,7 +74,8 @@ export async function setLocale(next: Locale): Promise<void> {
   const changed = current !== next;
   current = next;
   applyDocumentLocale(next);
-  if (changed) notify();
+  // A re-imported custom pack keeps the locale id but changes the strings: always notify for it.
+  if (changed || next === 'custom') notify();
 }
 
 /** Active locale (synchronous; reflects the last dictionary that finished loading). */

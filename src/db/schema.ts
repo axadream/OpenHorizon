@@ -26,7 +26,13 @@ export interface Feed {
    * YouTube watch lists. Unindexed, so no Dexie version bump is needed.
    */
   listKind?: ListKind;
+  /**
+   * BCP 47 language of the feed: declared by the feed (channel language / xml:lang), otherwise
+   * detected from article text at sync time (lib/lang/detectLanguage). Undefined when unknown.
+   */
   language?: string;
+  /** 1 when `language` was detected from article text, not declared by the feed; 0 when declared. Unindexed. */
+  languageDetected?: Flag;
   etag?: string;
   lastModified?: string;
   lastFetchedAt?: number;
@@ -93,7 +99,7 @@ export interface AiArticleCache {
   model: string;
   /** Where the text went when it was produced, shown as a badge on cached results. */
   privacy: 'on-device' | 'local' | 'cloud';
-  /** UI language the result is written in (en | ro | ar). */
+  /** UI language the result is written in (a Locale id: en, ro, he, zh-CN or custom). */
   lang: string;
   /** When it was generated (epoch ms). */
   at: number;
@@ -131,6 +137,13 @@ export interface Settings {
   aiApiKey: string;
   /** Cloud consent: consent key (provider id, or custom:<host>) -> epoch ms when accepted. */
   aiCloudConsent: Record<string, number>;
+  /**
+   * On-device Transformers.js model opted in (Settings > AI). Used when the provider is
+   * 'chrome-builtin' but the browser has no built-in Summarizer (phones, Safari, Firefox).
+   */
+  aiOnDeviceModel: boolean;
+  /** Show only feeds whose language matches the app language in the feed list. Off = show all. */
+  feedLanguageFilter: boolean;
 }
 
 /**

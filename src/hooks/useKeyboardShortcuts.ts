@@ -27,7 +27,7 @@ export const KEYMAP: readonly KeymapEntry[] = [
   { keys: ['K', '↑'], label: 'Previous article' },
   { keys: ['Home', 'End'], label: 'First / last article (timeline list)' },
   { keys: ['Enter', 'O'], label: 'Open selected article (mobile: reader)' },
-  { keys: ['←', '→'], label: 'Move focus between panes (mirrored in Arabic)' },
+  { keys: ['←', '→'], label: 'Move focus between panes (mirrored in right-to-left languages)' },
   { keys: ['M'], label: 'Toggle read' },
   { keys: ['L'], label: 'Toggle read later' },
   { keys: ['F'], label: 'Toggle favorite' },

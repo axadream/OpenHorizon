@@ -1,5 +1,6 @@
 import type { AiProviderId } from '@/db/schema';
 import type { Diagnosis } from '@/features/ai/errors';
+import type { OnDeviceEngine } from '@/features/ai/orchestrator';
 import type { AiAvailability, AiPrivacy, ProviderId } from '@/features/ai/types';
 import { t, type TranslationKey } from '@/i18n/i18n';
 
@@ -23,7 +24,14 @@ export const PROVIDER_KEY: Record<AiProviderId, TranslationKey> = {
 
 export const PROVIDER_ID_KEY: Record<ProviderId, TranslationKey> = {
   ...PROVIDER_KEY,
+  transformers: 'ai.provider.transformers',
   heuristic: 'ai.provider.heuristic',
+};
+
+export const ENGINE_KEY: Record<OnDeviceEngine, TranslationKey> = {
+  chrome: 'ai.engine.chrome',
+  transformers: 'ai.engine.transformers',
+  heuristic: 'ai.engine.heuristic',
 };
 
 export const PRIVACY_KEY: Record<AiPrivacy, TranslationKey> = {
