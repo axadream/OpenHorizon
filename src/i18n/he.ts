@@ -641,23 +641,24 @@ export const he: Messages<typeof en> = {
   'ai.producedByOnly': 'נוצר על ידי {provider}',
   'ai.err.generic': 'לא ניתן היה ליצור את הסיכום.',
 
-  // ---- AI: on-device engines (built-in, Transformers.js, offline summarizer) ----
-  'ai.provider.transformers': 'מודל במכשיר (Transformers.js)',
+  // ---- AI: on-device engines (built-in, wllama, offline summarizer) ----
+  'ai.provider.wllama': 'מודל במכשיר (SmolLM2, llama.cpp)',
   'ai.engine': 'מנוע בשימוש',
   'ai.engine.chrome': 'מודל מובנה של הדפדפן',
-  'ai.engine.transformers': 'מודל במכשיר (מורד פעם אחת)',
+  'ai.engine.wllama': 'מודל במכשיר (SmolLM2 360M, מורד פעם אחת)',
   'ai.engine.heuristic': 'מסכם לא מקוון (ללא מודל)',
   'ai.builtinUnavailable': 'לדפדפן הזה אין מודל AI מובנה, ולכן הסיכומים נעשים על ידי המסכם הלא מקוון: הוא בוחר משפטי מפתח ומילות מפתח. לסיכומים שנכתבו על ידי מודל, הורד את המודל שבמכשיר למטה או חבר ספק מקומי או ענן.',
   'ai.onDeviceModel': 'מודל במכשיר',
-  'ai.onDeviceModelHint': 'מוריד פעם אחת מודל סיכום קומפקטי (כ-{size}) ומריץ אותו בדפדפן הזה, עם WebGPU כשזמין. עובד ב-Android וב-iOS. המודל כותב באנגלית.',
+  'ai.onDeviceModelHint': 'מוריד פעם אחת מודל שפה קומפקטי (כ-{size}) ומריץ אותו בדפדפן הזה, ברקע, בלי שבב גרפי. עובד ב-Android וב-iOS. המודל כותב באנגלית.',
   'ai.onDeviceModelEnable': 'הורד והשתמש',
   'ai.onDeviceModelDisable': 'הפסק להשתמש',
   'ai.onDeviceModelReady': 'מוכן',
   'ai.onDeviceModelNotLoaded': 'טרם הורד',
   'ai.onDeviceModelLoading': 'טוען את המודל שבמכשיר',
   'ai.onDeviceUnsupported': 'הדפדפן הזה אינו יכול להריץ את המודל שבמכשיר (חסר WebAssembly).',
-  'ai.note.transformersEnglish': 'נכתב באנגלית על ידי המודל שבמכשיר.',
-  'ai.err.transformers': 'לא ניתן היה לטעון את המודל שבמכשיר. בדוק את החיבור ונסה שוב.',
+  'ai.note.onDeviceEnglish': 'נכתב באנגלית על ידי המודל שבמכשיר (SmolLM2 360M).',
+  'ai.note.onDeviceFailed': 'המודל שבמכשיר לא יכול לרוץ במכשיר הזה (ייתכן שאין מספיק זיכרון), ולכן זו תוצאה לא מקוונת: משפטי פתיחה ומילות מפתח.',
+  'ai.err.onDeviceModel': 'לא ניתן היה לטעון את המודל שבמכשיר. בדוק את החיבור ואת שטח האחסון הפנוי, ונסה שוב.',
 
   // ---- sharing ----
   'share.title': 'שיתוף',

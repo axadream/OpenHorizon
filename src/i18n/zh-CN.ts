@@ -613,23 +613,24 @@ export const zhCN: Messages<typeof en> = {
   'ai.producedByOnly': '由 {provider} 生成',
   'ai.err.generic': '无法生成摘要。',
 
-  // ---- AI: on-device engines (built-in, Transformers.js, offline summarizer) ----
-  'ai.provider.transformers': '设备端模型（Transformers.js）',
+  // ---- AI: on-device engines (built-in, wllama, offline summarizer) ----
+  'ai.provider.wllama': '设备端模型（SmolLM2，llama.cpp）',
   'ai.engine': '当前使用的引擎',
   'ai.engine.chrome': '浏览器内置模型',
-  'ai.engine.transformers': '设备端模型（仅需下载一次）',
+  'ai.engine.wllama': '设备端模型（SmolLM2 360M，仅需下载一次）',
   'ai.engine.heuristic': '离线摘要器（无模型）',
   'ai.builtinUnavailable': '此浏览器没有内置 AI 模型，因此摘要将使用离线摘要器：它会提取关键句子和关键词。如需模型生成的摘要，请在下方下载设备端模型，或连接本机或云端提供商。',
   'ai.onDeviceModel': '设备端模型',
-  'ai.onDeviceModelHint': '一次性下载一个紧凑的摘要模型（约 {size}），并在此浏览器中运行，支持时使用 WebGPU。可在 Android 和 iOS 上使用。该模型以英文撰写。',
+  'ai.onDeviceModelHint': '一次性下载一个紧凑的语言模型（约 {size}），在此浏览器的后台运行，无需显卡芯片。可在 Android 和 iOS 上使用。该模型以英文撰写。',
   'ai.onDeviceModelEnable': '下载并使用',
   'ai.onDeviceModelDisable': '停止使用',
   'ai.onDeviceModelReady': '已就绪',
   'ai.onDeviceModelNotLoaded': '尚未下载',
   'ai.onDeviceModelLoading': '正在加载设备端模型',
   'ai.onDeviceUnsupported': '此浏览器无法运行设备端模型（缺少 WebAssembly）。',
-  'ai.note.transformersEnglish': '设备端模型以英文撰写。',
-  'ai.err.transformers': '无法加载设备端模型。请检查网络连接后重试。',
+  'ai.note.onDeviceEnglish': '设备端模型（SmolLM2 360M）以英文撰写。',
+  'ai.note.onDeviceFailed': '此设备无法运行设备端模型（可能内存不足），因此这是离线结果：开头句子和关键词。',
+  'ai.err.onDeviceModel': '无法加载设备端模型。请检查网络连接和可用存储空间后重试。',
 
   // ---- sharing ----
   'share.title': '分享',

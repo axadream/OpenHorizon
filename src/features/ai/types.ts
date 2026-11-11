@@ -12,13 +12,14 @@ export type AiNoteKey =
   | 'ai.note.englishOutput'
   | 'ai.note.heuristicFallback'
   | 'ai.note.heuristicTags'
-  | 'ai.note.transformersEnglish';
+  | 'ai.note.onDeviceEnglish'
+  | 'ai.note.onDeviceFailed';
 
 /**
  * Providers that can produce a draft: the settings providers plus the two on-device fallbacks used
- * when 'chrome-builtin' is selected but the browser has no built-in model (Transformers.js, heuristic).
+ * when 'chrome-builtin' is selected but the browser has no built-in model (wllama, heuristic).
  */
-export type ProviderId = AiProviderId | 'transformers' | 'heuristic';
+export type ProviderId = AiProviderId | 'wllama' | 'heuristic';
 
 /** The four-part result every provider returns. */
 export interface ArticleDraft {

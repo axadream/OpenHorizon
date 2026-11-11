@@ -16,11 +16,11 @@ import { resolveOnDeviceEngine, type OnDeviceEngine } from '@/features/ai/orches
 import { getChromeAiSupport, downloadChromeModel, type ChromeAiSupport } from '@/features/ai/providers/chromeBuiltin';
 import { testConnection } from '@/features/ai/providers/openAiCompatible';
 import {
-  downloadTransformersModel,
-  isTransformersModelCached,
-  isTransformersSupported,
-  TRANSFORMERS_MODEL_SIZE_LABEL,
-} from '@/features/ai/providers/transformers';
+  downloadOnDeviceModel,
+  isOnDeviceModelCached,
+  isOnDeviceModelSupported,
+  ON_DEVICE_MODEL_SIZE_LABEL,
+} from '@/features/ai/providers/wllama';
 import type { AiPrivacy } from '@/features/ai/types';
 import { useSetting } from '@/features/settings/settings';
 import { t, useT } from '@/i18n/i18n';
@@ -50,14 +50,14 @@ interface OnDeviceState {
 async function readOnDeviceState(onDeviceModel: boolean): Promise<OnDeviceState> {
   const [support, cached, engine] = await Promise.all([
     getChromeAiSupport(),
-    isTransformersModelCached(),
+    isOnDeviceModelCached(),
     resolveOnDeviceEngine({ onDeviceModel }),
   ]);
   return { support, cached, engine };
 }
 
 /**
- * Engine in use, the browser built-in model status, and the opt-in on-device model (Transformers.js).
+ * Engine in use, the browser built-in model status, and the opt-in on-device model (wllama).
  * Downloads must start from a click, so both download buttons are plain click handlers.
  */
 function OnDeviceStatus() {
@@ -67,7 +67,7 @@ function OnDeviceStatus() {
   const [revision, setRevision] = useState(0);
   const [chromeBusy, setChromeBusy] = useState(false);
   const [modelBusy, setModelBusy] = useState(false);
-  const supported = isTransformersSupported();
+  const supported = isOnDeviceModelSupported();
 
   useEffect(() => {
     let alive = true;
@@ -96,7 +96,7 @@ function OnDeviceStatus() {
   const enableModel = async (): Promise<void> => {
     setModelBusy(true);
     try {
-      await downloadTransformersModel();
+      await downloadOnDeviceModel();
       save('aiOnDeviceModel', true);
     } catch (err) {
       toast.error(t('ai.failed'), { description: err instanceof Error ? err.message : undefined });
@@ -134,7 +134,7 @@ function OnDeviceStatus() {
       ) : null}
 
       {supported ? (
-        <Row label={t('ai.onDeviceModel')} hint={t('ai.onDeviceModelHint', { size: TRANSFORMERS_MODEL_SIZE_LABEL })}>
+        <Row label={t('ai.onDeviceModel')} hint={t('ai.onDeviceModelHint', { size: ON_DEVICE_MODEL_SIZE_LABEL })}>
           <span role="status" className="text-sm text-silver">
             {t(state?.cached ? 'ai.onDeviceModelReady' : 'ai.onDeviceModelNotLoaded')}
           </span>

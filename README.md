@@ -133,13 +133,13 @@ Optional, and off until you turn it on in Settings > AI summaries. The reader's 
 
 - **On this device (default)**: three engines, picked automatically and shown in Settings as "Engine in use".
   1. Chrome's built-in AI (Summarizer and Prompt APIs) on desktop Chrome, so nothing leaves the device.
-  2. **On-device model for phones and other browsers**: Android, iOS, Safari and Firefox have no built-in model. Press **Download and use** in Settings → AI summaries to fetch a compact summarization model once (roughly 250 MB, cached by the browser) and run it locally with Transformers.js, on WebGPU where available and WebAssembly otherwise. No account, no key. The model writes English.
+  2. **On-device model for phones and other browsers**: Android, iOS, Safari and Firefox have no built-in model. Press **Download and use** in Settings → AI summaries to fetch a compact language model once (SmolLM2 360M Instruct, roughly 270 MB, cached by the browser) and run it locally with wllama (llama.cpp in WebAssembly) in a background worker. No graphics chip needed. No account, no key. The model writes English.
   3. **Offline summarizer**: always available, instant, no download. It picks the lead sentences, the key sentences and keyword tags, and the panel says so.
 - **Local servers**: Ollama, LM Studio or any OpenAI-compatible server on your computer or network. No key needed.
 - **Cloud (opt-in)**: OpenAI, Mistral, DeepSeek, Gemini or a custom endpoint, with your API key. Before the first request a dialog lists exactly what is sent and to which host. Nothing is sent before you accept, and the key is kept for this tab only unless you choose to remember it.
 - Results are cached on the article, and exports never include AI settings or keys.
 
-Transformers.js is not bundled; it loads from a pinned CDN address only when you ask for the on-device model. WebLLM is not used (gigabyte models, WebGPU only). See `docs/AI.md` for the architecture, privacy classes, the Ollama `OLLAMA_ORIGINS` setup and the Chrome requirements.
+wllama (MIT, llama.cpp is MIT) and the SmolLM2 model (Apache-2.0) are not bundled; they load from pinned addresses only when you ask for the on-device model. WebLLM is not used (gigabyte models, WebGPU only). See `docs/AI.md` for the architecture, privacy classes, the Ollama `OLLAMA_ORIGINS` setup and the Chrome requirements.
 
 ## Translations
 

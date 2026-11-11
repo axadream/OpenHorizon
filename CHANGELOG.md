@@ -10,11 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - The Arabic translation was removed. Hebrew (right-to-left) and Simplified Chinese were added.
 - Shared text now reads `Shared via OpenHorizon app | Article title` in the system share sheet, the in-app share sheet and "Copy link".
-- The "Chrome built-in AI" provider is now called "On this device" and chains three engines: the browser's built-in model, the optional on-device Transformers.js model, and the offline summarizer. Settings shows which one is in use and explains why when the browser has no built-in model.
+- The "Chrome built-in AI" provider is now called "On this device" and chains three engines: the browser's built-in model, the optional on-device model, and the offline summarizer. Settings shows which one is in use and explains why when the browser has no built-in model.
 
 ### Added
 
-- On-device AI for phones and other browsers: Settings → AI summaries → "Download and use" fetches a compact summarization model once (roughly 250 MB, cached) and runs it in the browser with Transformers.js (WebGPU where available, WebAssembly otherwise). No key or account. Off until you opt in.
+- On-device AI for phones and other browsers: Settings → AI summaries → "Download and use" fetches SmolLM2-360M-Instruct once (about 270 MB, cached) and runs it in the browser with wllama (llama.cpp in WebAssembly) in a background worker. No WebGPU needed. No key or account. Off until you opt in. Licenses: wllama and llama.cpp are MIT, SmolLM2 is Apache-2.0.
+- If the on-device model cannot run (for example, the device is short of memory), summaries fall back to the offline result and say so.
 - Custom translations: export the English strings as JSON from Settings → Appearance, translate them, and import the file. The app switches to it at once; missing keys fall back to English, and the file can be removed again.
 - Feed language filter: feeds are tagged with their language (declared by the feed, otherwise detected from article text at sync time). Settings → Appearance → Feed languages can hide feeds that are not in the app language; feeds without a known language stay visible, and the feed list says how many are hidden.
 - Touch gesture guide: on touch devices Settings → App shows the gestures (tap, long press, swipe right to delete, swipe left to favorite, pull to refresh, back) instead of the keyboard shortcuts.

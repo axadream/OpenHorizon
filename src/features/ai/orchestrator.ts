@@ -11,7 +11,7 @@ import { AiFlowError, isAbortError, type AiErrorKey } from './errors';
 import { chromeBuiltinProvider, getChromeAiSupport } from './providers/chromeBuiltin';
 import { heuristicProvider } from './providers/heuristic';
 import { createOpenAiProvider } from './providers/openAiCompatible';
-import { isTransformersSupported, transformersProvider } from './providers/transformers';
+import { isOnDeviceModelSupported, onDeviceModelProvider } from './providers/wllama';
 import type { AiProvider, DraftPatch, ProviderResult } from './types';
 
 /*
@@ -60,13 +60,13 @@ export async function isAiReady(): Promise<boolean> {
   return config !== null && issues.every((issue) => issue === 'mixed');
 }
 
-/** The on-device engine in use: 'chrome' (built-in), 'transformers' (opt-in model) or 'heuristic' (offline). */
-export type OnDeviceEngine = 'chrome' | 'transformers' | 'heuristic';
+/** The on-device engine in use: 'chrome' (built-in), 'wllama' (opt-in model) or 'heuristic' (offline). */
+export type OnDeviceEngine = 'chrome' | 'wllama' | 'heuristic';
 
-/** Tier 1 Chrome built-in when available; tier 2 Transformers.js when opted in; tier 3 heuristic. */
+/** Tier 1 Chrome built-in when available; tier 2 wllama when opted in; tier 3 heuristic. */
 export async function resolveOnDeviceEngine(opts: { onDeviceModel: boolean }): Promise<OnDeviceEngine> {
   if ((await getChromeAiSupport()).summarizer !== 'unavailable') return 'chrome';
-  if (opts.onDeviceModel && isTransformersSupported()) return 'transformers';
+  if (opts.onDeviceModel && isOnDeviceModelSupported()) return 'wllama';
   return 'heuristic';
 }
 
@@ -77,7 +77,7 @@ export async function chooseProvider(
   if (s.aiProvider === 'chrome-builtin') {
     const engine = await resolveOnDeviceEngine({ onDeviceModel: s.aiOnDeviceModel });
     if (engine === 'chrome') return chromeBuiltinProvider;
-    return engine === 'transformers' ? transformersProvider : heuristicProvider;
+    return engine === 'wllama' ? onDeviceModelProvider : heuristicProvider;
   }
   const apiKey = await getApiKey();
   const { config, issues } = resolveAiConfig(

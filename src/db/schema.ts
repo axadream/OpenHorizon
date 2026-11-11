@@ -138,7 +138,7 @@ export interface Settings {
   /** Cloud consent: consent key (provider id, or custom:<host>) -> epoch ms when accepted. */
   aiCloudConsent: Record<string, number>;
   /**
-   * On-device Transformers.js model opted in (Settings > AI). Used when the provider is
+   * On-device model (wllama, SmolLM2) opted in (Settings > AI). Used when the provider is
    * 'chrome-builtin' but the browser has no built-in Summarizer (phones, Safari, Firefox).
    */
   aiOnDeviceModel: boolean;

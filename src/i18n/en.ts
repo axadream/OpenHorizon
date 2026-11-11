@@ -628,23 +628,24 @@ export const en = {
   'ai.producedByOnly': 'Made by {provider}',
   'ai.err.generic':'The summary could not be created.',
 
-  // ---- AI: on-device engines (built-in, Transformers.js, offline summarizer) ----
-  'ai.provider.transformers': 'On-device model (Transformers.js)',
+  // ---- AI: on-device engines (built-in, wllama, offline summarizer) ----
+  'ai.provider.wllama': 'On-device model (SmolLM2, llama.cpp)',
   'ai.engine': 'Engine in use',
   'ai.engine.chrome': 'Browser built-in model',
-  'ai.engine.transformers': 'On-device model (downloaded once)',
+  'ai.engine.wllama': 'On-device model (SmolLM2 360M, downloaded once)',
   'ai.engine.heuristic': 'Offline summarizer (no model)',
   'ai.builtinUnavailable': 'This browser has no built-in AI model, so summaries use the offline summarizer: it picks the key sentences and keywords. For model-written summaries, download the on-device model below or connect a local or cloud provider.',
   'ai.onDeviceModel': 'On-device model',
-  'ai.onDeviceModelHint': 'Downloads a compact summarization model once (roughly {size}) and runs it in this browser, with WebGPU where available. Works on Android and iOS. The model writes English.',
+  'ai.onDeviceModelHint': 'Downloads a compact language model once (roughly {size}) and runs it in this browser, in the background, without a graphics chip. Works on Android and iOS. The model writes English.',
   'ai.onDeviceModelEnable': 'Download and use',
   'ai.onDeviceModelDisable': 'Stop using',
   'ai.onDeviceModelReady': 'Ready',
   'ai.onDeviceModelNotLoaded': 'Not downloaded yet',
   'ai.onDeviceModelLoading': 'Loading the on-device model',
   'ai.onDeviceUnsupported': 'This browser cannot run the on-device model (WebAssembly is missing).',
-  'ai.note.transformersEnglish': 'Written in English by the on-device model.',
-  'ai.err.transformers': 'The on-device model could not be loaded. Check your connection and try again.',
+  'ai.note.onDeviceEnglish': 'Written in English by the on-device model (SmolLM2 360M).',
+  'ai.note.onDeviceFailed': 'The on-device model could not run on this device (it may be short of memory), so this is an offline result: lead sentences and keywords.',
+  'ai.err.onDeviceModel': 'The on-device model could not be loaded. Check your connection and free space, then try again.',
 
   // ---- sharing ----
   'share.title': 'Share',

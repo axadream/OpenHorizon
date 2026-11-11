@@ -637,23 +637,24 @@ export const ro: Messages<typeof en> = {
 
   'yt.addChannel':'Adaugă {name}',
 
-  // ---- AI: on-device engines (built-in, Transformers.js, offline summarizer) ----
-  'ai.provider.transformers': 'Model pe dispozitiv (Transformers.js)',
+  // ---- AI: on-device engines (built-in, wllama, offline summarizer) ----
+  'ai.provider.wllama': 'Model pe dispozitiv (SmolLM2, llama.cpp)',
   'ai.engine': 'Motor în uz',
   'ai.engine.chrome': 'Model integrat în browser',
-  'ai.engine.transformers': 'Model pe dispozitiv (descărcat o singură dată)',
+  'ai.engine.wllama': 'Model pe dispozitiv (SmolLM2 360M, descărcat o singură dată)',
   'ai.engine.heuristic': 'Rezumator offline (fără model)',
   'ai.builtinUnavailable': 'Acest browser nu are un model AI integrat, deci rezumatele folosesc rezumatorul offline: alege propozițiile-cheie și cuvintele cheie. Pentru rezumate scrise de un model, descarcă modelul pe dispozitiv de mai jos sau conectează un furnizor local ori cloud.',
   'ai.onDeviceModel': 'Model pe dispozitiv',
-  'ai.onDeviceModelHint': 'Descarcă o singură dată un model compact de rezumare (aproximativ {size}) și rulează-l în acest browser, cu WebGPU acolo unde este disponibil. Funcționează pe Android și iOS. Modelul scrie în engleză.',
+  'ai.onDeviceModelHint': 'Descarcă o singură dată un model de limbaj compact (aproximativ {size}) și rulează-l în acest browser, în fundal, fără cip grafic. Funcționează pe Android și iOS. Modelul scrie în engleză.',
   'ai.onDeviceModelEnable': 'Descarcă și folosește',
   'ai.onDeviceModelDisable': 'Nu mai folosi',
   'ai.onDeviceModelReady': 'Gata',
   'ai.onDeviceModelNotLoaded': 'Nedescărcat încă',
   'ai.onDeviceModelLoading': 'Se încarcă modelul pe dispozitiv',
   'ai.onDeviceUnsupported': 'Acest browser nu poate rula modelul pe dispozitiv (lipsește WebAssembly).',
-  'ai.note.transformersEnglish': 'Scris în engleză de modelul de pe dispozitiv.',
-  'ai.err.transformers': 'Modelul de pe dispozitiv nu a putut fi încărcat. Verifică conexiunea și încearcă din nou.',
+  'ai.note.onDeviceEnglish': 'Scris în engleză de modelul de pe dispozitiv (SmolLM2 360M).',
+  'ai.note.onDeviceFailed': 'Modelul de pe dispozitiv nu poate rula pe acest dispozitiv (poate fi lipsit de memorie), deci acesta este un rezultat offline: propozițiile de început și cuvintele cheie.',
+  'ai.err.onDeviceModel': 'Modelul de pe dispozitiv nu a putut fi încărcat. Verifică conexiunea și spațiul liber, apoi încearcă din nou.',
 
   // ---- sharing ----
   'share.title': 'Distribuie',

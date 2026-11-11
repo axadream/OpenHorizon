@@ -24,13 +24,13 @@ export const PROVIDER_KEY: Record<AiProviderId, TranslationKey> = {
 
 export const PROVIDER_ID_KEY: Record<ProviderId, TranslationKey> = {
   ...PROVIDER_KEY,
-  transformers: 'ai.provider.transformers',
+  wllama: 'ai.provider.wllama',
   heuristic: 'ai.provider.heuristic',
 };
 
 export const ENGINE_KEY: Record<OnDeviceEngine, TranslationKey> = {
   chrome: 'ai.engine.chrome',
-  transformers: 'ai.engine.transformers',
+  wllama: 'ai.engine.wllama',
   heuristic: 'ai.engine.heuristic',
 };
 
