@@ -13,7 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   soundsEnabled: false,
   soundVolume: 40,
   aiEnabled: false,
-  aiProvider: 'chrome-builtin',
+  aiProvider: 'auto',
   aiBaseUrl: '',
   aiModel: '',
   aiInstructions: '',
@@ -21,5 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
   aiApiKey: '',
   aiCloudConsent: {},
   aiOnDeviceModel: false,
+  aiSignedInProvider: '',
+  aiOpenRouterModel: 'google/gemma-4-26b-a4b-it:free',
   feedLanguageFilter: false,
 };

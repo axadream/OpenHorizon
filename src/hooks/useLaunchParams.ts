@@ -1,10 +1,31 @@
 import { useEffect } from 'react';
 import { LAUNCH_KEYS, parseLaunchParams, removeSearchParams, type LaunchParseResult } from '@/app/launchParams';
+import { diagnosisText } from '@/components/ai/labels';
+import { diagnoseNow } from '@/features/ai/openAiContext';
+import { completeOpenRouterSignIn } from '@/features/ai/oauth/openrouter';
 import { runSyncFromPage } from '@/features/sync/scheduler';
 import { share } from '@/features/sharing/share';
+import { setSetting } from '@/features/settings/settings';
 import { t } from '@/i18n/i18n';
 import { toast } from '@/lib/toast';
 import { useUiStore } from '@/store/uiStore';
+
+/**
+ * Finishes "Sign in with OpenRouter": exchanges the code and turns AI on. Settings > AI opens either
+ * way, so a failure shows the reason next to the sign-in row.
+ */
+async function finishSignIn(code: string, state: string): Promise<void> {
+  try {
+    await completeOpenRouterSignIn(code, state);
+    await setSetting('aiEnabled', true);
+    toast.success(t('ai.signInDone'));
+  } catch (err) {
+    const diagnosis = await diagnoseNow(err);
+    toast.error(t('ai.signInFailed'), { description: diagnosis ? diagnosisText(diagnosis) : undefined });
+  } finally {
+    useUiStore.getState().openDialog('settings', { section: 'ai' });
+  }
+}
 
 /**
  * Applies the launch request in the address bar (protocol handler, share target, shortcuts) and
@@ -44,6 +65,9 @@ function applyLaunchRequest(request: LaunchParseResult): void {
       break;
     case 'view':
       ui.setView({ type: request.view });
+      break;
+    case 'oauth':
+      void finishSignIn(request.code, request.state);
       break;
     case 'none':
       return;

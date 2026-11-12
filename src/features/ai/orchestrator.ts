@@ -2,12 +2,14 @@ import type { Article, Settings } from '@/db/schema';
 import { playChime } from '@/features/audio/chimes';
 import { getAllSettings } from '@/features/settings/settings';
 import { getLocale, t } from '@/i18n/i18n';
+import { toast } from '@/lib/toast';
 import { startActivity } from '@/store/activityStore';
 import { prepareArticleText } from './articleText';
 import { buildAiCache, isAiCacheValid, writeAiCache } from './cache';
 import { resolveAiConfig, type AiConfigIssue } from './config';
 import { getApiKey } from './apiKey';
-import { AiFlowError, isAbortError, type AiErrorKey } from './errors';
+import { AiConsentRequiredError, AiFlowError, isAbortError, type AiErrorKey } from './errors';
+import { diagnoseNow } from './openAiContext';
 import { chromeBuiltinProvider, getChromeAiSupport } from './providers/chromeBuiltin';
 import { heuristicProvider } from './providers/heuristic';
 import { createOpenAiProvider } from './providers/openAiCompatible';
@@ -50,10 +52,15 @@ const ISSUE_ERROR: Record<Exclude<AiConfigIssue, 'mixed'>, AiErrorKey> = {
 /** Settings-derived readiness, used by the reader button (true when the panel may open). */
 export async function isAiReady(): Promise<boolean> {
   const s = await getAllSettings();
-  if (s.aiProvider === 'chrome-builtin') return true;
+  if (s.aiProvider === 'chrome-builtin' || s.aiProvider === 'auto') return true;
   const apiKey = await getApiKey();
   const { config, issues } = resolveAiConfig(
-    { provider: s.aiProvider, baseUrl: s.aiBaseUrl, model: s.aiModel, hasKey: apiKey !== '' },
+    {
+      provider: s.aiProvider,
+      baseUrl: s.aiProvider === 'openrouter' ? '' : s.aiBaseUrl,
+      model: s.aiProvider === 'openrouter' ? s.aiOpenRouterModel : s.aiModel,
+      hasKey: apiKey !== '',
+    },
     pageProtocol(),
   );
   // A mixed-content address still opens the panel, so the user sees the explanation there.
@@ -70,18 +77,77 @@ export async function resolveOnDeviceEngine(opts: { onDeviceModel: boolean }): P
   return 'heuristic';
 }
 
-/** The provider for the current settings. Throws AiFlowError when a cloud or local provider is not set up. */
+/** The engine 'auto' uses: Chrome built-in, then the signed-in cloud service, then the on-device fallbacks. */
+export type AutoEngine = 'chrome' | 'openrouter' | 'wllama' | 'heuristic';
+
+/** Pure order of the auto engines. signedIn means a signed-in service with a key is ready (the caller checks). */
+export async function resolveAutoEngine(opts: { onDeviceModel: boolean; signedIn: boolean }): Promise<AutoEngine> {
+  if ((await getChromeAiSupport()).summarizer !== 'unavailable') return 'chrome';
+  if (opts.signedIn) return 'openrouter';
+  if (opts.onDeviceModel && isOnDeviceModelSupported()) return 'wllama';
+  return 'heuristic';
+}
+
+/**
+ * Wraps the signed-in cloud provider for auto mode: when the service fails (network, quota, server), the
+ * user gets the offline heuristic result instead of an error, and the reason is shown as a toast.
+ * Consent and cancellation still propagate.
+ */
+function withOfflineFallback(provider: AiProvider): AiProvider {
+  return {
+    id: provider.id,
+    privacy: provider.privacy,
+    async generate(input) {
+      try {
+        return await provider.generate(input);
+      } catch (err) {
+        if (isAbortError(err) || err instanceof AiConsentRequiredError) throw err;
+        const diagnosis = await diagnoseNow(err);
+        toast.error(t('ai.failed'), { description: diagnosis ? t(diagnosis.key, diagnosis.params) : undefined });
+        const result = await heuristicProvider.generate(input);
+        return { ...result, notes: [...result.notes, 'ai.note.cloudFailed'] };
+      }
+    },
+  };
+}
+
+/**
+ * The provider for the current settings. Throws AiFlowError when a cloud or local provider is not set up.
+ * auto: Chrome built-in when the browser has it, then the signed-in cloud service, then the on-device
+ * fallbacks. Any other value is the user's manual choice and is used as is.
+ */
 export async function chooseProvider(
-  s: Pick<Settings, 'aiProvider' | 'aiBaseUrl' | 'aiModel' | 'aiOnDeviceModel'>,
+  s: Pick<Settings, 'aiProvider' | 'aiBaseUrl' | 'aiModel' | 'aiOnDeviceModel' | 'aiSignedInProvider' | 'aiOpenRouterModel'>,
 ): Promise<AiProvider> {
   if (s.aiProvider === 'chrome-builtin') {
     const engine = await resolveOnDeviceEngine({ onDeviceModel: s.aiOnDeviceModel });
     if (engine === 'chrome') return chromeBuiltinProvider;
     return engine === 'wllama' ? onDeviceModelProvider : heuristicProvider;
   }
+  if (s.aiProvider === 'auto') {
+    const autoKey = await getApiKey();
+    const signedIn = s.aiSignedInProvider === 'openrouter' && autoKey !== '';
+    const engine = await resolveAutoEngine({ onDeviceModel: s.aiOnDeviceModel, signedIn });
+    if (engine === 'chrome') return chromeBuiltinProvider;
+    if (engine === 'openrouter') {
+      const { config, issues } = resolveAiConfig(
+        { provider: 'openrouter', baseUrl: '', model: s.aiOpenRouterModel, hasKey: true },
+        pageProtocol(),
+      );
+      if (config && !issues.includes('model')) return withOfflineFallback(createOpenAiProvider({ config, apiKey: autoKey }));
+    }
+    const onDevice = await resolveAutoEngine({ onDeviceModel: s.aiOnDeviceModel, signedIn: false });
+    return onDevice === 'wllama' ? onDeviceModelProvider : heuristicProvider;
+  }
   const apiKey = await getApiKey();
+  // The OpenRouter model and address come from their own settings, so an old custom address never receives the key.
   const { config, issues } = resolveAiConfig(
-    { provider: s.aiProvider, baseUrl: s.aiBaseUrl, model: s.aiModel, hasKey: apiKey !== '' },
+    {
+      provider: s.aiProvider,
+      baseUrl: s.aiProvider === 'openrouter' ? '' : s.aiBaseUrl,
+      model: s.aiProvider === 'openrouter' ? s.aiOpenRouterModel : s.aiModel,
+      hasKey: apiKey !== '',
+    },
     pageProtocol(),
   );
   if (issues.includes('key')) throw new AiFlowError('ai.err.noKey');

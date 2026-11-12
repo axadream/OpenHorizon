@@ -30,10 +30,15 @@ function doFetch(ctx: OpenAiContext): FetchLike {
   return ctx.fetchImpl ?? ((url, init) => fetch(url, init));
 }
 
-function requestHeaders(apiKey: string, accept: string, json: boolean): Record<string, string> {
+function requestHeaders(ctx: OpenAiContext, accept: string, json: boolean): Record<string, string> {
   const headers: Record<string, string> = { Accept: accept };
   if (json) headers['Content-Type'] = 'application/json';
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (ctx.apiKey) headers.Authorization = `Bearer ${ctx.apiKey}`;
+  // OpenRouter asks apps to identify themselves (shown on its app rankings and key page).
+  if (ctx.config.provider === 'openrouter') {
+    if (typeof location !== 'undefined') headers['HTTP-Referer'] = new URL(import.meta.env.BASE_URL, location.origin).href;
+    headers['X-Title'] = 'OpenHorizon';
+  }
   return headers;
 }
 
@@ -72,7 +77,7 @@ function withDeadline(user: AbortSignal): Deadline {
 async function post(ctx: OpenAiContext, url: string, body: unknown, signal: AbortSignal): Promise<Response> {
   const res = await doFetch(ctx)(url, {
     method: 'POST',
-    headers: requestHeaders(ctx.apiKey, 'text/event-stream, application/json', true),
+    headers: requestHeaders(ctx, 'text/event-stream, application/json', true),
     body: JSON.stringify(body),
     signal,
     credentials: 'omit',
@@ -86,7 +91,7 @@ async function post(ctx: OpenAiContext, url: string, body: unknown, signal: Abor
 async function getJson(ctx: OpenAiContext, url: string, signal: AbortSignal): Promise<unknown> {
   const res = await doFetch(ctx)(url, {
     method: 'GET',
-    headers: requestHeaders(ctx.apiKey, 'application/json', false),
+    headers: requestHeaders(ctx, 'application/json', false),
     signal,
     credentials: 'omit',
     referrerPolicy: 'no-referrer',
@@ -164,6 +169,7 @@ async function chatJson(
     temperature: 0.2,
     stream: true,
     ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    ...(ctx.config.maxOutputTokens !== undefined ? { max_tokens: ctx.config.maxOutputTokens } : {}),
   });
   const url = chatCompletionsUrl(ctx.config.baseUrl);
   try {
@@ -188,10 +194,11 @@ export function createOpenAiProvider(ctx: OpenAiContext): AiProvider {
     id: ctx.config.provider,
     privacy: ctx.config.privacy,
     async generate(input: GenerateInput): Promise<ProviderResult> {
+      const maxChars = ctx.config.maxInputChars;
       const prompt = buildPrompt({
         title: input.title,
         url: input.url,
-        text: input.text,
+        text: maxChars !== undefined ? input.text.slice(0, maxChars) : input.text,
         locale: input.locale,
         instructions: input.instructions,
       });

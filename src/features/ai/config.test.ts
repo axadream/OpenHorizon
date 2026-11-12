@@ -38,9 +38,11 @@ describe('presets', () => {
     expect(getPreset('gemini').baseUrl).toBe('https://generativelanguage.googleapis.com/v1beta/openai');
   });
 
-  it('has a settings entry for every provider id, with chrome-builtin first (the default)', () => {
+  it('has a settings entry for every provider id, with auto first (the default)', () => {
     expect(AI_PROVIDER_IDS).toHaveLength(Object.keys(AI_PRESETS).length);
-    expect(AI_PROVIDER_IDS[0]).toBe('chrome-builtin');
+    expect(AI_PROVIDER_IDS[0]).toBe('auto');
+    expect(AI_PROVIDER_IDS).toContain('chrome-builtin');
+    expect(AI_PROVIDER_IDS).toContain('openrouter');
   });
 
   it('marks cloud presets as cloud and keyed, and local presets as keyless', () => {

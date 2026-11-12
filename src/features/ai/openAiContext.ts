@@ -13,9 +13,17 @@ import type { OpenAiContext } from './providers/openAiCompatible';
 export async function loadOpenAiContext(options: { needModel: boolean }): Promise<OpenAiContext> {
   const s = await getAllSettings();
   if (s.aiProvider === 'chrome-builtin') throw new AiFlowError('ai.err.notConfigured');
+  // auto uses the signed-in service, and only when there is one.
+  if (s.aiProvider === 'auto' && s.aiSignedInProvider !== 'openrouter') throw new AiFlowError('ai.err.notConfigured');
+  const provider = s.aiProvider === 'auto' ? 'openrouter' : s.aiProvider;
   const apiKey = await getApiKey();
   const { config, issues } = resolveAiConfig(
-    { provider: s.aiProvider, baseUrl: s.aiBaseUrl, model: s.aiModel, hasKey: apiKey !== '' },
+    {
+      provider,
+      baseUrl: provider === 'openrouter' ? '' : s.aiBaseUrl,
+      model: provider === 'openrouter' ? s.aiOpenRouterModel : s.aiModel,
+      hasKey: apiKey !== '',
+    },
     location.protocol,
   );
   if (!config) throw new AiFlowError('ai.err.notConfigured');
@@ -28,9 +36,11 @@ export async function loadOpenAiContext(options: { needModel: boolean }): Promis
 /** Friendly diagnosis of an error, using the saved provider and the page's origin and connectivity. */
 export async function diagnoseNow(err: unknown): Promise<Diagnosis | null> {
   const s = await getAllSettings();
+  // auto talks to the signed-in service, so its errors are diagnosed as OpenRouter's.
+  const provider = s.aiProvider === 'auto' ? 'openrouter' : s.aiProvider;
   return diagnoseAiError(err, {
-    provider: s.aiProvider,
-    baseUrl: s.aiBaseUrl || getPreset(s.aiProvider).baseUrl,
+    provider,
+    baseUrl: provider === 'openrouter' ? getPreset('openrouter').baseUrl : s.aiBaseUrl || getPreset(provider).baseUrl,
     pageOrigin: location.origin,
     pageProtocol: location.protocol,
     online: navigator.onLine,

@@ -134,6 +134,20 @@ describe('parseLaunchParams: actions and views', () => {
   });
 });
 
+describe('parseLaunchParams: OAuth callback (?code= ?state=)', () => {
+  it('maps a code and state pair to the oauth result', () => {
+    expect(parseLaunchParams('?code=abc&state=xyz')).toEqual({ kind: 'oauth', code: 'abc', state: 'xyz' });
+  });
+
+  it('needs both the code and the state', () => {
+    expect(parseLaunchParams('?code=abc')).toEqual({ kind: 'none' });
+  });
+
+  it('removes the OAuth keys and keeps the path', () => {
+    expect(removeSearchParams('https://x.test/OpenHorizon/?code=a&state=b', ['code', 'state'])).toBe('/OpenHorizon/');
+  });
+});
+
 describe('parseLaunchParams: malformed input', () => {
   it('rejects non-web schemes', () => {
     expect(parseLaunchParams('?feed=javascript%3Aalert(1)')).toEqual({ kind: 'none' });

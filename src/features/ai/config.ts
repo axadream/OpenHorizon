@@ -32,6 +32,10 @@ export interface ResolvedAiConfig {
   host: string;
   /** Key of the consent record: the provider id, or provider:host for address-classified providers. */
   consentKey: string;
+  /** Article text is cut to this many characters before the request (from the preset). */
+  maxInputChars?: number;
+  /** Sent as max_tokens (from the preset). */
+  maxOutputTokens?: number;
 }
 
 export interface AiConfigResult {
@@ -43,7 +47,7 @@ export interface AiConfigResult {
 /** Resolve settings into a config and the list of problems that stop a request (empty when ready). */
 export function resolveAiConfig(input: AiConfigInput, pageProtocol: string): AiConfigResult {
   const preset = getPreset(input.provider);
-  if (input.provider === 'chrome-builtin') {
+  if (input.provider === 'chrome-builtin' || input.provider === 'auto') {
     return {
       config: {
         provider: input.provider,
@@ -81,6 +85,8 @@ export function resolveAiConfig(input: AiConfigInput, pageProtocol: string): AiC
       ollamaTags: preset.ollamaTags,
       host,
       consentKey: preset.privacyFromUrl ? `${input.provider}:${host}` : input.provider,
+      maxInputChars: preset.maxInputChars,
+      maxOutputTokens: preset.maxOutputTokens,
     },
     issues,
   };

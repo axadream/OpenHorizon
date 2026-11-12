@@ -66,7 +66,9 @@ export function isAbortError(err: unknown): boolean {
   return errorNamed(err, 'AbortError');
 }
 
-function httpDiagnosis(status: number, body: string): Diagnosis {
+function httpDiagnosis(status: number, body: string, provider: ProviderId): Diagnosis {
+  if (status === 402) return { key: 'ai.err.credits' };
+  if ((status === 401 || status === 403) && provider === 'openrouter') return { key: 'ai.err.signInAgain' };
   if (status === 401 || status === 403) return { key: 'ai.err.auth' };
   if (status === 429) return { key: 'ai.err.rate' };
   if (status === 404) return /model/i.test(body) ? { key: 'ai.err.model' } : { key: 'ai.err.endpoint' };
@@ -97,7 +99,7 @@ export function diagnoseAiError(err: unknown, ctx: DiagnosisContext): Diagnosis 
   if (isAbortError(err)) return null;
   if (err instanceof AiConsentRequiredError) return { key: 'ai.err.consent' };
   if (err instanceof AiFlowError) return { key: err.key, params: err.params };
-  if (err instanceof AiHttpError) return httpDiagnosis(err.status, err.body);
+  if (err instanceof AiHttpError) return httpDiagnosis(err.status, err.body, ctx.provider);
   if (errorNamed(err, 'TimeoutError')) return { key: 'ai.err.generic' };
   if (err instanceof TypeError) return networkDiagnosis(ctx);
   return { key: 'ai.err.generic' };

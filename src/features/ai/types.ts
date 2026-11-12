@@ -9,6 +9,7 @@ export type AiAvailability = 'unavailable' | 'downloadable' | 'downloading' | 'a
 
 /** Explanations shown next to a result (i18n keys). */
 export type AiNoteKey =
+  | 'ai.note.cloudFailed'
   | 'ai.note.englishOutput'
   | 'ai.note.heuristicFallback'
   | 'ai.note.heuristicTags'

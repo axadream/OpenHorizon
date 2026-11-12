@@ -16,7 +16,16 @@ const AiSettings = lazy(() => import('./settings/AiSettings').then((m) => ({ def
 function SettingsBody({ section }: { section?: string }) {
   useEffect(() => {
     if (!section) return;
-    document.getElementById(`settings-${section}`)?.scrollIntoView({ block: 'start' });
+    // The AI section is lazy-loaded, so retry briefly until its element exists.
+    let tries = 0;
+    const timer = setInterval(() => {
+      const el = document.getElementById(`settings-${section}`);
+      if (el || ++tries > 20) {
+        clearInterval(timer);
+        el?.scrollIntoView({ block: 'start' });
+      }
+    }, 50);
+    return () => clearInterval(timer);
   }, [section]);
 
   return (

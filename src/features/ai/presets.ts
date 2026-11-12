@@ -1,9 +1,11 @@
 import type { AiProviderId } from '@/db/schema';
 import type { AiPrivacy } from './types';
 
-/** Settings order of the provider select. chrome-builtin first: it is the default. */
+/** Settings order of the provider select. auto first: it is the default (Chrome built-in, then sign-in, then on-device). */
 export const AI_PROVIDER_IDS: readonly AiProviderId[] = [
+  'auto',
   'chrome-builtin',
+  'openrouter',
   'ollama',
   'lmstudio',
   'openai',
@@ -28,9 +30,25 @@ export interface AiPreset {
   jsonMode: boolean;
   /** Ollama also serves its own model list at /api/tags. */
   ollamaTags: boolean;
+  /** Article text is cut to this many characters before the request. Unset means no cut. */
+  maxInputChars?: number;
+  /** Sent as max_tokens. Unset means the server default. */
+  maxOutputTokens?: number;
 }
 
+export const OPENROUTER_KEYS_URL = 'https://openrouter.ai/settings/keys';
+export const OPENROUTER_HOST = 'openrouter.ai';
+
 export const AI_PRESETS: Record<AiProviderId, AiPreset> = {
+  auto: {
+    id: 'auto',
+    baseUrl: '',
+    privacy: 'on-device',
+    privacyFromUrl: false,
+    requiresKey: false,
+    jsonMode: false,
+    ollamaTags: false,
+  },
   'chrome-builtin': {
     id: 'chrome-builtin',
     baseUrl: '',
@@ -39,6 +57,17 @@ export const AI_PRESETS: Record<AiProviderId, AiPreset> = {
     requiresKey: false,
     jsonMode: false,
     ollamaTags: false,
+  },
+  openrouter: {
+    id: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    privacy: 'cloud',
+    privacyFromUrl: false,
+    requiresKey: true,
+    jsonMode: false,
+    ollamaTags: false,
+    maxInputChars: 6000,
+    maxOutputTokens: 400,
   },
   ollama: {
     id: 'ollama',

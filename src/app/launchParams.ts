@@ -13,6 +13,7 @@ import type { View } from '@/store/types';
  *   ?action=sync           "Sync feeds" shortcut (refresh all feeds)
  *   ?action=share          "Share app" shortcut (share OpenHorizon itself)
  *   ?view=unread|favorites smart-view shortcuts
+ *   ?code=&state=  OAuth callback (Sign in with OpenRouter, see features/ai/oauth)
  *
  * Browsers do not allow registering the `feed:` scheme, so `feed://` text pasted into the app is
  * unwrapped by lib/url (unwrapFeedScheme) instead.
@@ -23,6 +24,7 @@ export type LaunchParseResult =
   | { kind: 'share'; url: string }
   | { kind: 'action'; action: 'add' | 'sync' | 'share' }
   | { kind: 'view'; view: Extract<View, { type: 'unread' | 'favorites' }>['type'] }
+  | { kind: 'oauth'; code: string; state: string }
   | { kind: 'none' };
 
 /** Query keys each result consumes; they are removed from the address bar after handling. */
@@ -31,6 +33,7 @@ export const LAUNCH_KEYS: Record<Exclude<LaunchParseResult['kind'], 'none'>, rea
   share: ['url', 'text', 'title'],
   action: ['action'],
   view: ['view'],
+  oauth: ['code', 'state'],
 };
 
 /** A link inside free text: http(s), or a feed-scheme prefix. The lookbehind stops matches inside words. */
@@ -89,7 +92,11 @@ export function firstLinkInText(text: string | null | undefined): string {
 export function parseLaunchParams(search: string): LaunchParseResult {
   const params = new URLSearchParams(search);
 
-  const feed = toWebUrl(params.get('feed'), { allowBareHost: true });
+  const code = params.get('code');
+  const state = params.get('state');
+  if (code && state) return { kind: 'oauth', code, state };
+
+  const feed =toWebUrl(params.get('feed'), { allowBareHost: true });
   if (feed) return { kind: 'add-feed', url: feed };
 
   const shared = toWebUrl(params.get('url')) || firstLinkInText(params.get('url')) || firstLinkInText(params.get('text')) || toWebUrl(params.get('title'));

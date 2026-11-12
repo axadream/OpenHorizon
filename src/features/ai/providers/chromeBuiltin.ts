@@ -65,6 +65,16 @@ export async function getChromeAiSupport(): Promise<ChromeAiSupport> {
   return { summarizer, prompt };
 }
 
+/**
+ * Why the built-in summarizer is unavailable, for the Settings message: a phone or tablet, a browser
+ * that has no Summarizer API, or a device that has the API but cannot run the model (hardware, disk, OS).
+ */
+export function chromeUnavailableReason(): 'mobile' | 'browser' | 'device' {
+  if (typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return 'mobile';
+  if (chromeAiGlobals().Summarizer === undefined) return 'browser';
+  return 'device';
+}
+
 /** The output language to ask for, and whether it differs from the interface language. */
 export function outputLanguageFor(locale: Locale): { language: string; fellBack: boolean } {
   return (CHROME_OUTPUT_LANGUAGES as readonly string[]).includes(locale)
@@ -141,7 +151,7 @@ async function summarizeWith(
   if (input.signal.aborted) throw abortError();
   const session = await createSession(
     api,
-    { type, format: 'markdown', length: 'medium', sharedContext: input.instructions, outputLanguage: language },
+    { type, format: 'markdown', length: 'short', sharedContext: input.instructions, outputLanguage: language },
     t('ai.downloadingModel'),
   );
   try {
@@ -218,7 +228,10 @@ export const chromeBuiltinProvider: AiProvider = {
 export async function downloadChromeModel(): Promise<AiAvailability> {
   const api = chromeAiGlobals().Summarizer;
   if (!api) return 'unavailable';
-  const session = await createSession(api, { type: 'tldr', format: 'markdown', length: 'medium', outputLanguage: 'en' }, t('ai.downloadingModel'));
+  // Already downloading or ready: creating a session again would only start a second download check.
+  const current = (await getChromeAiSupport()).summarizer;
+  if (current === 'downloading' || current === 'available') return current;
+  const session = await createSession(api, { type: 'tldr', format: 'markdown', length: 'short', outputLanguage: 'en' }, t('ai.downloadingModel'));
   session.destroy();
   return (await getChromeAiSupport()).summarizer;
 }

@@ -87,7 +87,17 @@ export interface Article {
 }
 
 /** Provider ids of the AI summary feature (Settings > AI). */
-export type AiProviderId = 'chrome-builtin' | 'ollama' | 'lmstudio' | 'openai' | 'mistral' | 'deepseek' | 'gemini' | 'custom';
+export type AiProviderId =
+  | 'auto'
+  | 'chrome-builtin'
+  | 'openrouter'
+  | 'ollama'
+  | 'lmstudio'
+  | 'openai'
+  | 'mistral'
+  | 'deepseek'
+  | 'gemini'
+  | 'custom';
 
 /** AI summary stored on an article row. */
 export interface AiArticleCache {
@@ -142,6 +152,10 @@ export interface Settings {
    * 'chrome-builtin' but the browser has no built-in Summarizer (phones, Safari, Firefox).
    */
   aiOnDeviceModel: boolean;
+  /** Cloud service the user signed in to through OAuth ('' when none). Set on a successful sign-in, cleared on sign-out. */
+  aiSignedInProvider: '' | 'openrouter';
+  /** Model used by the OpenRouter sign-in provider (auto mode and the openrouter provider). */
+  aiOpenRouterModel: string;
   /** Show only feeds whose language matches the app language in the feed list. Off = show all. */
   feedLanguageFilter: boolean;
 }
